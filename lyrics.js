@@ -51,11 +51,11 @@ function crearDOM() {
             position: fixed;
             left: 0;
             right: 0;
-            bottom: 130px;
+            top: 34px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: flex-start;
             gap: 10px;
             padding: 0 24px;
             z-index: 500;
@@ -121,9 +121,9 @@ function crearDOM() {
             color: #aef6ff;
         }
 
-        /* En pantallas muy pequeñas, deja más aire respecto a la barra inferior */
+        /* En pantallas pequeñas, deja aire respecto al borde superior */
         @media (max-width: 480px) {
-            #lyrics-layer { bottom: 122px; padding: 0 16px; }
+            #lyrics-layer { top: 24px; padding: 0 16px; }
             #lyrics-actual { font-size: 1.2rem; }
             #lyrics-anterior, #lyrics-siguiente { font-size: 0.8rem; }
         }
