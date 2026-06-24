@@ -185,50 +185,25 @@
             opacity: 0;
         }
 
-        /* ── MENSAJE FLOTANTE ── */
-        #mensaje-flotante {
-            position: absolute;
-            bottom: 120px;
-            width: 100%;
-            text-align: center;
-            color: #ffffff;
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 1.1rem;
-            pointer-events: none;
-            opacity: 0;
-            text-shadow: 0 0 10px #ff69b4;
-            letter-spacing: 1px;
-            transition: opacity 2s;
-        }
-
-        .animar-flotar {
-            animation: flotar 3s ease-in-out infinite;
-        }
-
-        @keyframes flotar {
-            0%,100% {
-                transform: translateY(0);
-                opacity: 0.8;
-            }
-
-            50% {
-                transform: translateY(-10px);
-                opacity: 1;
-            }
-        }
-
         /* ── CONTROLES MÚSICA ── */
         #music-bar {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 100;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 15px 20px 20px;
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+            gap: 12px;
+            width: min(440px, 92vw);
+            padding: 18px 22px 16px;
+            background: linear-gradient(165deg, rgba(20,8,38,0.78) 0%, rgba(8,4,20,0.85) 100%);
+            border: 1px solid rgba(255,105,180,0.22);
+            border-radius: 22px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 40px rgba(150,50,255,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
             opacity: 0;
             transition: opacity 1.5s;
         }
@@ -236,12 +211,12 @@
         #song-title {
             color: #ffb3d9;
             font-family: 'Segoe UI', sans-serif;
+            font-weight: 600;
             font-size: 0.95rem;
-            letter-spacing: 1px;
-            margin-bottom: 10px;
-            text-shadow: 0 0 8px #ff69b4;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 10px rgba(255,105,180,0.55);
             text-align: center;
-            max-width: 90%;
+            max-width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -252,49 +227,41 @@
             align-items: center;
             gap: 10px;
             width: 100%;
-            max-width: 400px;
-            margin-bottom: 15px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            color: #ffb3d9;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 0.72rem;
+            color: rgba(255,179,217,0.75);
+            font-variant-numeric: tabular-nums;
         }
 
-        #progress-bar {
+        #waveform-bar {
             flex: 1;
-            -webkit-appearance: none;
-            appearance: none;
-            height: 5px;
-            border-radius: 5px;
-            background: rgba(255,105,180,0.3);
+            height: 32px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
             cursor: pointer;
-            outline: none;
+            padding: 0 2px;
         }
 
-            #progress-bar::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 14px;
-                height: 14px;
-                border-radius: 50%;
-                background: #ff69b4;
-                cursor: pointer;
-                box-shadow: 0 0 8px #ff69b4;
+            #waveform-bar .wf-bar {
+                flex: 1;
+                min-width: 2px;
+                border-radius: 2px;
+                background: rgba(255,105,180,0.22);
+                transition: background 0.25s ease;
+                will-change: transform;
             }
 
-            #progress-bar::-moz-range-thumb {
-                width: 14px;
-                height: 14px;
-                border-radius: 50%;
-                border: none;
-                background: #ff69b4;
-                cursor: pointer;
-                box-shadow: 0 0 8px #ff69b4;
-            }
+                #waveform-bar .wf-bar.wf-played {
+                    background: #ff7fc4;
+                    box-shadow: 0 0 6px rgba(255,105,180,0.7);
+                }
 
         #music-controls {
             display: flex;
-            gap: 20px;
+            gap: 14px;
             align-items: center;
+            justify-content: center;
             position: relative;
         }
 
@@ -302,9 +269,9 @@
             background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,105,180,0.4);
             color: #fff;
-            font-size: 1.3rem;
-            width: 46px;
-            height: 46px;
+            font-size: 1.15rem;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
@@ -323,9 +290,9 @@
             }
 
         #btn-play {
-            width: 56px;
-            height: 56px;
-            font-size: 1.6rem;
+            width: 52px;
+            height: 52px;
+            font-size: 1.45rem;
             border-color: rgba(255,105,180,0.7);
         }
 
@@ -502,13 +469,11 @@
         </div>
     </div>
 
-    <div id="mensaje-flotante" class="animar-flotar">✨ explora tu universo ✨</div>
-
     <div id="music-bar">
         <div id="song-title">♪ Cargando música...</div>
         <div id="progress-container">
             <span id="time-current">0:00</span>
-            <input type="range" id="progress-bar" value="0" min="0" max="100">
+            <div id="waveform-bar"></div>
             <span id="time-total">0:00</span>
         </div>
         <div id="music-controls">
@@ -681,12 +646,55 @@
         const audio = new Audio();
         const btnPlay = document.getElementById('btn-play');
         const songTitle = document.getElementById('song-title');
-        const progressBar = document.getElementById('progress-bar');
+        const waveformBar = document.getElementById('waveform-bar');
         const timeCurrent = document.getElementById('time-current');
         const timeTotal = document.getElementById('time-total');
         const btnList = document.getElementById('btn-list');
         const playlistPanel = document.getElementById('playlist-panel');
         const playlistScroll = document.getElementById('playlist-scroll');
+
+        // ── Waveform decorativo y funcional como barra de progreso ─────────────
+        // Generamos N barritas con alturas pseudo-aleatorias (pero estables,
+        // con una "semilla" para que no cambien de forma en cada repintado)
+        // y luego pintamos de color las que ya se "reprodujeron" según el
+        // avance de la canción, igual que en la imagen de referencia.
+        const WF_TOTAL_BARRAS = 60;
+        let wfSeed = 1234;
+        function wfRandom() {
+            // PRNG simple y determinista para que el patrón sea estable
+            wfSeed = (wfSeed * 9301 + 49297) % 233280;
+            return wfSeed / 233280;
+        }
+        function generarWaveform() {
+            waveformBar.innerHTML = '';
+            wfSeed = 1234;
+            for (let i = 0; i < WF_TOTAL_BARRAS; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'wf-bar';
+                // Envolvente tipo "onda de voz": más alta al centro de cada grupo
+                const onda = Math.sin((i / WF_TOTAL_BARRAS) * Math.PI * 3.2) * 0.5 + 0.5;
+                const ruido = wfRandom() * 0.6 + 0.4;
+                const alturaPct = Math.max(18, Math.min(100, onda * ruido * 100));
+                bar.style.height = alturaPct + '%';
+                waveformBar.appendChild(bar);
+            }
+        }
+        function actualizarWaveformProgreso(fraccion) {
+            const barras = waveformBar.children;
+            const activas = Math.round(fraccion * barras.length);
+            for (let i = 0; i < barras.length; i++) {
+                barras[i].classList.toggle('wf-played', i < activas);
+            }
+        }
+        generarWaveform();
+
+        waveformBar.addEventListener('click', (e) => {
+            if (!audio.duration) return;
+            const rect = waveformBar.getBoundingClientRect();
+            const fraccion = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+            audio.currentTime = fraccion * audio.duration;
+            actualizarWaveformProgreso(fraccion);
+        });
 
         function formatearTiempo(segundos) {
             if (isNaN(segundos)) return "0:00";
@@ -769,17 +777,12 @@
         // Eventos de la barra de progreso
         audio.addEventListener('timeupdate', () => {
             if (audio.duration) {
-                progressBar.value = (audio.currentTime / audio.duration) * 100;
+                actualizarWaveformProgreso(audio.currentTime / audio.duration);
                 timeCurrent.textContent = formatearTiempo(audio.currentTime);
             }
         });
         audio.addEventListener('loadedmetadata', () => {
             timeTotal.textContent = formatearTiempo(audio.duration);
-        });
-        progressBar.addEventListener('input', () => {
-            if (audio.duration) {
-                audio.currentTime = (progressBar.value / 100) * audio.duration;
-            }
         });
 
         audio.addEventListener('ended', () => cargarCancion(1, true));
@@ -876,7 +879,6 @@
 
             }, 200);
 
-            document.getElementById('mensaje-flotante').style.opacity = '1';
             document.getElementById('music-bar').style.opacity = '1';
 
             // VELOCIDAD DE ROTACIÓN TRAS EL BIG BANG
