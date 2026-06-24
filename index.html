@@ -1015,12 +1015,12 @@
 
         // ── 6 NEBULOSAS CANVAS (originales restauradas) ───────────────────────────
         const nebConfig = [
-            { pos: [-900, 200, -700],   sc: 1100, r: 140, g: 0,   b: 220, op: 0.55 },
-            { pos: [1100, -150, -900],  sc: 1200, r: 20,  g: 80,  b: 220, op: 0.5  },
-            { pos: [-800, -350, 600],   sc: 900,  r: 210, g: 20,  b: 100, op: 0.5  },
-            { pos: [750, 550, -1100],   sc: 850,  r: 0,   g: 160, b: 130, op: 0.45 },
-            { pos: [-250, -650, 900],   sc: 750,  r: 200, g: 110, b: 10,  op: 0.45 },
-            { pos: [500, -200, 1200],   sc: 800,  r: 60,  g: 140, b: 255, op: 0.4  },
+            { pos: [-900, 200, -700], sc: 1100, r: 140, g: 0, b: 220, op: 0.55 },
+            { pos: [1100, -150, -900], sc: 1200, r: 20, g: 80, b: 220, op: 0.5 },
+            { pos: [-800, -350, 600], sc: 900, r: 210, g: 20, b: 100, op: 0.5 },
+            { pos: [750, 550, -1100], sc: 850, r: 0, g: 160, b: 130, op: 0.45 },
+            { pos: [-250, -650, 900], sc: 750, r: 200, g: 110, b: 10, op: 0.45 },
+            { pos: [500, -200, 1200], sc: 800, r: 60, g: 140, b: 255, op: 0.4 },
         ];
         nebConfig.forEach(cfg => {
             const sp = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -1034,53 +1034,53 @@
         // Cada nebulosa = grupo de 5 planos apilados con offsets, rotaciones y
         // semillas distintas → al orbitar la cámara se ve profundidad real.
         const nebulaGLSLVert = `
-            varying vec2 vUv;
-            void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
-        `;
+                varying vec2 vUv;
+                void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
+            `;
         const nebulaGLSLFrag = `
-            uniform float u_time;
-            uniform float u_speed;
-            uniform float u_seed;
-            uniform float u_layerOpacity;
-            uniform vec3  u_colOuter;
-            uniform vec3  u_colMid;
-            uniform vec3  u_colCore;
-            uniform vec3  u_colCenter;
-            varying vec2 vUv;
+                uniform float u_time;
+                uniform float u_speed;
+                uniform float u_seed;
+                uniform float u_layerOpacity;
+                uniform vec3  u_colOuter;
+                uniform vec3  u_colMid;
+                uniform vec3  u_colCore;
+                uniform vec3  u_colCenter;
+                varying vec2 vUv;
 
-            float noise(vec3 x){
-                vec3 p=floor(x); vec3 f=fract(x); f=f*f*(3.0-2.0*f);
-                float n=p.x+p.y*57.0+113.0*p.z;
-                return mix(mix(mix(fract(sin(n)*43758.5453),fract(sin(n+1.0)*43758.5453),f.x),
-                               mix(fract(sin(n+57.0)*43758.5453),fract(sin(n+58.0)*43758.5453),f.x),f.y),
-                           mix(mix(fract(sin(n+113.0)*43758.5453),fract(sin(n+114.0)*43758.5453),f.x),
-                               mix(fract(sin(n+170.0)*43758.5453),fract(sin(n+171.0)*43758.5453),f.x),f.y),f.z);
-            }
-            float fbm(vec3 x){
-                float v=0.0,a=0.5; vec3 s=vec3(100.0);
-                for(int i=0;i<5;++i){v+=a*noise(x);x=x*2.0+s;a*=0.5;} return v;
-            }
-            mat2 rot(float a){float s=sin(a),c=cos(a);return mat2(c,-s,s,c);}
+                float noise(vec3 x){
+                    vec3 p=floor(x); vec3 f=fract(x); f=f*f*(3.0-2.0*f);
+                    float n=p.x+p.y*57.0+113.0*p.z;
+                    return mix(mix(mix(fract(sin(n)*43758.5453),fract(sin(n+1.0)*43758.5453),f.x),
+                                   mix(fract(sin(n+57.0)*43758.5453),fract(sin(n+58.0)*43758.5453),f.x),f.y),
+                               mix(mix(fract(sin(n+113.0)*43758.5453),fract(sin(n+114.0)*43758.5453),f.x),
+                                   mix(fract(sin(n+170.0)*43758.5453),fract(sin(n+171.0)*43758.5453),f.x),f.y),f.z);
+                }
+                float fbm(vec3 x){
+                    float v=0.0,a=0.5; vec3 s=vec3(100.0);
+                    for(int i=0;i<5;++i){v+=a*noise(x);x=x*2.0+s;a*=0.5;} return v;
+                }
+                mat2 rot(float a){float s=sin(a),c=cos(a);return mat2(c,-s,s,c);}
 
-            void main(){
-                vec2 uv=(vUv-0.5)*2.0; uv*=1.8;
-                vec2 d=uv*rot(0.785398+u_seed*0.5);
-                float t=u_time*u_speed+u_seed*3.7;
-                float dist=length(vec2(d.x*0.45,d.y*1.9));
-                float mask=smoothstep(1.55,0.0,dist);
-                vec3 p=vec3(d*2.0+u_seed*5.0,t);
-                vec3 q=vec3(fbm(p),fbm(p+vec3(1.7+u_seed)),0.0);
-                vec3 r2=vec3(fbm(p+q*2.0+t),fbm(p+q*2.0-t),0.0);
-                float den=fbm(p+r2*2.5);
-                den=smoothstep(0.05,0.88,den*mask*1.35);
-                den=pow(den,2.0);
-                vec3 fc=mix(vec3(0.0), u_colOuter,  smoothstep(0.0,0.2,den));
-                fc     =mix(fc,        u_colMid,    smoothstep(0.2,0.5,den));
-                fc     =mix(fc,        u_colCore,   smoothstep(0.5,0.8,den));
-                fc     =mix(fc,        u_colCenter, smoothstep(0.8,1.0,den)*mask);
-                gl_FragColor=vec4(fc, den*u_layerOpacity);
-            }
-        `;
+                void main(){
+                    vec2 uv=(vUv-0.5)*2.0; uv*=1.8;
+                    vec2 d=uv*rot(0.785398+u_seed*0.5);
+                    float t=u_time*u_speed+u_seed*3.7;
+                    float dist=length(vec2(d.x*0.45,d.y*1.9));
+                    float mask=smoothstep(1.55,0.0,dist);
+                    vec3 p=vec3(d*2.0+u_seed*5.0,t);
+                    vec3 q=vec3(fbm(p),fbm(p+vec3(1.7+u_seed)),0.0);
+                    vec3 r2=vec3(fbm(p+q*2.0+t),fbm(p+q*2.0-t),0.0);
+                    float den=fbm(p+r2*2.5);
+                    den=smoothstep(0.05,0.88,den*mask*1.35);
+                    den=pow(den,2.0);
+                    vec3 fc=mix(vec3(0.0), u_colOuter,  smoothstep(0.0,0.2,den));
+                    fc     =mix(fc,        u_colMid,    smoothstep(0.2,0.5,den));
+                    fc     =mix(fc,        u_colCore,   smoothstep(0.5,0.8,den));
+                    fc     =mix(fc,        u_colCenter, smoothstep(0.8,1.0,den)*mask);
+                    gl_FragColor=vec4(fc, den*u_layerOpacity);
+                }
+            `;
 
         // Función que crea una nebulosa volumétrica como grupo de capas
         function crearNebulaVolumen(cx, cy, cz, baseSize, speed, rxBase, ryBase, paleta) {
@@ -1089,11 +1089,11 @@
             // 5 capas: varían tamaño, profundidad a lo largo del eje local Z,
             // rotación propia y semilla de ruido → apariencia tridimensional
             const capas = [
-                { dz:  0,    scale:1.00, seed:0.0,  op:0.62, rx: 0.00, ry: 0.00 },
-                { dz:  90,   scale:0.82, seed:1.3,  op:0.48, rx: 0.18, ry: 0.12 },
-                { dz: -90,   scale:0.88, seed:2.7,  op:0.44, rx:-0.15, ry:-0.10 },
-                { dz:  170,  scale:0.65, seed:4.1,  op:0.35, rx: 0.28, ry:-0.20 },
-                { dz: -160,  scale:0.70, seed:5.5,  op:0.30, rx:-0.22, ry: 0.18 },
+                { dz: 0, scale: 1.00, seed: 0.0, op: 0.62, rx: 0.00, ry: 0.00 },
+                { dz: 90, scale: 0.82, seed: 1.3, op: 0.48, rx: 0.18, ry: 0.12 },
+                { dz: -90, scale: 0.88, seed: 2.7, op: 0.44, rx: -0.15, ry: -0.10 },
+                { dz: 170, scale: 0.65, seed: 4.1, op: 0.35, rx: 0.28, ry: -0.20 },
+                { dz: -160, scale: 0.70, seed: 5.5, op: 0.30, rx: -0.22, ry: 0.18 },
             ];
             const mats = [];
             capas.forEach(c => {
@@ -1101,14 +1101,14 @@
                     vertexShader: nebulaGLSLVert,
                     fragmentShader: nebulaGLSLFrag,
                     uniforms: {
-                        u_time:         { value: 0.0 },
-                        u_speed:        { value: speed },
-                        u_seed:         { value: c.seed },
+                        u_time: { value: 0.0 },
+                        u_speed: { value: speed },
+                        u_seed: { value: c.seed },
                         u_layerOpacity: { value: c.op },
-                        u_colOuter:     { value: new THREE.Vector3(...paleta.outer)  },
-                        u_colMid:       { value: new THREE.Vector3(...paleta.mid)    },
-                        u_colCore:      { value: new THREE.Vector3(...paleta.core)   },
-                        u_colCenter:    { value: new THREE.Vector3(...paleta.center) },
+                        u_colOuter: { value: new THREE.Vector3(...paleta.outer) },
+                        u_colMid: { value: new THREE.Vector3(...paleta.mid) },
+                        u_colCore: { value: new THREE.Vector3(...paleta.core) },
+                        u_colCenter: { value: new THREE.Vector3(...paleta.center) },
                     },
                     transparent: true, depthWrite: false,
                     blending: THREE.AdditiveBlending, side: THREE.DoubleSide
@@ -1135,9 +1135,9 @@
             1050, 0.07,          // tamaño base, velocidad
             0.30, -0.45,         // rotación base X / Y
             {
-                outer:  [0.06, 0.00, 0.32],
-                mid:    [0.25, 0.00, 0.58],
-                core:   [0.50, 0.04, 0.68],
+                outer: [0.06, 0.00, 0.32],
+                mid: [0.25, 0.00, 0.58],
+                core: [0.50, 0.04, 0.68],
                 center: [0.75, 0.20, 0.82],
             }
         ));
@@ -1148,9 +1148,9 @@
             1200, 0.05,
             -0.25, 0.55,
             {
-                outer:  [0.00, 0.06, 0.42],
-                mid:    [0.02, 0.22, 0.65],
-                core:   [0.05, 0.48, 0.78],
+                outer: [0.00, 0.06, 0.42],
+                mid: [0.02, 0.22, 0.65],
+                core: [0.05, 0.48, 0.78],
                 center: [0.18, 0.72, 0.92],
             }
         ));
@@ -1161,9 +1161,9 @@
             980, 0.06,
             0.15, 0.70,
             {
-                outer:  [0.28, 0.10, 0.00],
-                mid:    [0.52, 0.22, 0.00],
-                core:   [0.70, 0.38, 0.04],
+                outer: [0.28, 0.10, 0.00],
+                mid: [0.52, 0.22, 0.00],
+                core: [0.70, 0.38, 0.04],
                 center: [0.88, 0.58, 0.14],
             }
         ));
@@ -1174,9 +1174,9 @@
             480, 0.05,
             -0.10, 0.30,
             {
-                outer:  [0.00, 0.10, 0.10],
-                mid:    [0.00, 0.30, 0.26],
-                core:   [0.05, 0.55, 0.42],
+                outer: [0.00, 0.10, 0.10],
+                mid: [0.00, 0.30, 0.26],
+                core: [0.05, 0.55, 0.42],
                 center: [0.30, 0.85, 0.68],
             }
         ));
@@ -1187,9 +1187,9 @@
             420, 0.06,
             0.22, -0.35,
             {
-                outer:  [0.20, 0.00, 0.14],
-                mid:    [0.48, 0.05, 0.34],
-                core:   [0.78, 0.25, 0.55],
+                outer: [0.20, 0.00, 0.14],
+                mid: [0.48, 0.05, 0.34],
+                core: [0.78, 0.25, 0.55],
                 center: [0.95, 0.62, 0.80],
             }
         ));
@@ -1200,9 +1200,9 @@
             400, 0.04,
             0.05, 0.60,
             {
-                outer:  [0.18, 0.10, 0.00],
-                mid:    [0.40, 0.26, 0.02],
-                core:   [0.62, 0.46, 0.10],
+                outer: [0.18, 0.10, 0.00],
+                mid: [0.40, 0.26, 0.02],
+                core: [0.62, 0.46, 0.10],
                 center: [0.85, 0.72, 0.35],
             }
         ));
@@ -1213,10 +1213,88 @@
             460, 0.05,
             -0.30, -0.20,
             {
-                outer:  [0.00, 0.02, 0.22],
-                mid:    [0.02, 0.10, 0.45],
-                core:   [0.10, 0.28, 0.70],
+                outer: [0.00, 0.02, 0.22],
+                mid: [0.02, 0.10, 0.45],
+                core: [0.10, 0.28, 0.70],
                 center: [0.35, 0.55, 0.92],
+            }
+        ));
+
+        // Nebulosa 8 — Lila suave, muy lejos casi detrás del sol (hueco cercano a az≈0-20)
+        nebulaGLSLMeshes.push(...crearNebulaVolumen(
+            3600, 700, 200,
+            420, 0.045,
+            0.18, 0.40,
+            {
+                outer: [0.14, 0.00, 0.24],
+                mid: [0.32, 0.04, 0.46],
+                core: [0.55, 0.18, 0.65],
+                center: [0.80, 0.55, 0.88],
+            }
+        ));
+
+        // Nebulosa 9 — Coral cálido, hueco lateral derecho (az≈80-100), bien lejos
+        nebulaGLSLMeshes.push(...crearNebulaVolumen(
+            -200, -1100, 3500,
+            390, 0.05,
+            -0.22, 0.10,
+            {
+                outer: [0.22, 0.04, 0.02],
+                mid: [0.48, 0.14, 0.06],
+                core: [0.72, 0.30, 0.16],
+                center: [0.92, 0.55, 0.40],
+            }
+        ));
+
+        // Nebulosa 10 — Cian glaciar pequeña, hueco zona trasera/sur (az≈160-180)
+        nebulaGLSLMeshes.push(...crearNebulaVolumen(
+            -3400, -300, -800,
+            360, 0.04,
+            0.08, -0.50,
+            {
+                outer: [0.00, 0.10, 0.16],
+                mid: [0.00, 0.28, 0.36],
+                core: [0.08, 0.50, 0.55],
+                center: [0.40, 0.78, 0.85],
+            }
+        ));
+
+        // Nebulosa 11 — Magenta tenue, alta y lejana, equilibra la parte superior
+        nebulaGLSLMeshes.push(...crearNebulaVolumen(
+            1800, 1700, -2200,
+            380, 0.045,
+            -0.15, 0.65,
+            {
+                outer: [0.20, 0.00, 0.16],
+                mid: [0.42, 0.02, 0.32],
+                core: [0.68, 0.10, 0.50],
+                center: [0.90, 0.42, 0.72],
+            }
+        ));
+
+        // Nebulosa 12 — Verde-azulado pequeña, zona baja-trasera (hueco az≈-100/-90)
+        nebulaGLSLMeshes.push(...crearNebulaVolumen(
+            -700, -1500, -3300,
+            400, 0.05,
+            0.26, 0.20,
+            {
+                outer: [0.00, 0.14, 0.10],
+                mid: [0.02, 0.34, 0.24],
+                core: [0.10, 0.58, 0.42],
+                center: [0.42, 0.85, 0.62],
+            }
+        ));
+
+        // Nebulosa 13 — Violeta polvoriento, muy al fondo, completa el lado sureste
+        nebulaGLSLMeshes.push(...crearNebulaVolumen(
+            3200, -200, 2600,
+            370, 0.04,
+            0.12, -0.30,
+            {
+                outer: [0.10, 0.00, 0.20],
+                mid: [0.26, 0.02, 0.42],
+                core: [0.46, 0.10, 0.62],
+                center: [0.70, 0.38, 0.82],
             }
         ));
 
@@ -1224,131 +1302,131 @@
         // Máscara matemática: cabeza (círculo) + 2 orejas (triángulos) + bigotes (líneas)
         // La nebulosa GLSL solo brilla donde la silueta de gato lo permite.
         const catNebulaVert = `
-            varying vec2 vUv;
-            void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
-        `;
+                varying vec2 vUv;
+                void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
+            `;
         const catNebulaFrag = `
-            uniform float u_time;
-            varying vec2 vUv;
+                uniform float u_time;
+                varying vec2 vUv;
 
-            // ── ruido y fbm ────────────────────────────────────────────────────────
-            float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
-            float noise(vec3 x){
-                vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
-                return mix(mix(mix(hash(i),            hash(i+vec3(1,0,0)),f.x),
-                               mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
-                           mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
-                               mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
-            }
-            float fbm(vec3 p){
-                float v=0.0,a=0.5;
-                for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.1+vec3(5.2,1.3,3.7);a*=0.5;}
-                return v;
-            }
+                // ── ruido y fbm ────────────────────────────────────────────────────────
+                float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+                float noise(vec3 x){
+                    vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
+                    return mix(mix(mix(hash(i),            hash(i+vec3(1,0,0)),f.x),
+                                   mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+                               mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
+                                   mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
+                }
+                float fbm(vec3 p){
+                    float v=0.0,a=0.5;
+                    for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.1+vec3(5.2,1.3,3.7);a*=0.5;}
+                    return v;
+                }
 
-            // ── SDF helpers ───────────────────────────────────────────────────────
-            float sdCircle(vec2 p, vec2 c, float r){ return length(p-c)-r; }
+                // ── SDF helpers ───────────────────────────────────────────────────────
+                float sdCircle(vec2 p, vec2 c, float r){ return length(p-c)-r; }
 
-            // triángulo orientable para orejas
-            float sdTriangle(vec2 p, vec2 a, vec2 b, vec2 c2){
-                vec2 e0=b-a,e1=c2-b,e2=a-c2;
-                vec2 v0=p-a, v1=p-b, v2=p-c2;
-                vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
-                vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
-                vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
-                float s=sign(e0.x*e2.y-e0.y*e2.x);
-                vec2 d=min(min(vec2(dot(pq0,pq0),s*(v0.x*e0.y-v0.y*e0.x)),
-                               vec2(dot(pq1,pq1),s*(v1.x*e1.y-v1.y*e1.x))),
-                               vec2(dot(pq2,pq2),s*(v2.x*e2.y-v2.y*e2.x)));
-                return -sqrt(d.x)*sign(d.y);
-            }
+                // triángulo orientable para orejas
+                float sdTriangle(vec2 p, vec2 a, vec2 b, vec2 c2){
+                    vec2 e0=b-a,e1=c2-b,e2=a-c2;
+                    vec2 v0=p-a, v1=p-b, v2=p-c2;
+                    vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
+                    vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
+                    vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
+                    float s=sign(e0.x*e2.y-e0.y*e2.x);
+                    vec2 d=min(min(vec2(dot(pq0,pq0),s*(v0.x*e0.y-v0.y*e0.x)),
+                                   vec2(dot(pq1,pq1),s*(v1.x*e1.y-v1.y*e1.x))),
+                                   vec2(dot(pq2,pq2),s*(v2.x*e2.y-v2.y*e2.x)));
+                    return -sqrt(d.x)*sign(d.y);
+                }
 
-            // bigote: segmento engrosado
-            float sdCapsule(vec2 p, vec2 a, vec2 b, float r){
-                vec2 pa=p-a, ba=b-a;
-                float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
-                return length(pa-ba*h)-r;
-            }
+                // bigote: segmento engrosado
+                float sdCapsule(vec2 p, vec2 a, vec2 b, float r){
+                    vec2 pa=p-a, ba=b-a;
+                    float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
+                    return length(pa-ba*h)-r;
+                }
 
-            // ── Máscara silueta de gato ────────────────────────────────────────────
-            float catMask(vec2 p){
-                // cabeza: círculo centrado en (0, -0.05), radio 0.38
-                float head = sdCircle(p, vec2(0.0,-0.05), 0.38);
+                // ── Máscara silueta de gato ────────────────────────────────────────────
+                float catMask(vec2 p){
+                    // cabeza: círculo centrado en (0, -0.05), radio 0.38
+                    float head = sdCircle(p, vec2(0.0,-0.05), 0.38);
 
-                // oreja izquierda: triángulo apuntando arriba-izquierda
-                float earL = sdTriangle(p,
-                    vec2(-0.38, 0.18),   // base izq
-                    vec2(-0.12, 0.18),   // base der
-                    vec2(-0.30, 0.52)    // punta
-                );
-                // oreja derecha: simétrica
-                float earR = sdTriangle(p,
-                    vec2( 0.12, 0.18),
-                    vec2( 0.38, 0.18),
-                    vec2( 0.30, 0.52)
-                );
+                    // oreja izquierda: triángulo apuntando arriba-izquierda
+                    float earL = sdTriangle(p,
+                        vec2(-0.38, 0.18),   // base izq
+                        vec2(-0.12, 0.18),   // base der
+                        vec2(-0.30, 0.52)    // punta
+                    );
+                    // oreja derecha: simétrica
+                    float earR = sdTriangle(p,
+                        vec2( 0.12, 0.18),
+                        vec2( 0.38, 0.18),
+                        vec2( 0.30, 0.52)
+                    );
 
-                // unión suave de cabeza + orejas
-                float body = min(head, min(earL, earR));
+                    // unión suave de cabeza + orejas
+                    float body = min(head, min(earL, earR));
 
-                // bigotes: 3 a cada lado, suavizados
-                float r = 0.012; // grosor bigote
-                float w1L = sdCapsule(p, vec2(-0.38,-0.05), vec2(-0.72,-0.02), r);
-                float w2L = sdCapsule(p, vec2(-0.38,-0.10), vec2(-0.72,-0.14), r);
-                float w3L = sdCapsule(p, vec2(-0.38,-0.00), vec2(-0.72, 0.06), r);
-                float w1R = sdCapsule(p, vec2( 0.38,-0.05), vec2( 0.72,-0.02), r);
-                float w2R = sdCapsule(p, vec2( 0.38,-0.10), vec2( 0.72,-0.14), r);
-                float w3R = sdCapsule(p, vec2( 0.38,-0.00), vec2( 0.72, 0.06), r);
-                float whiskers = min(min(min(w1L,w2L),min(w3L,w1R)),min(w2R,w3R));
+                    // bigotes: 3 a cada lado, suavizados
+                    float r = 0.012; // grosor bigote
+                    float w1L = sdCapsule(p, vec2(-0.38,-0.05), vec2(-0.72,-0.02), r);
+                    float w2L = sdCapsule(p, vec2(-0.38,-0.10), vec2(-0.72,-0.14), r);
+                    float w3L = sdCapsule(p, vec2(-0.38,-0.00), vec2(-0.72, 0.06), r);
+                    float w1R = sdCapsule(p, vec2( 0.38,-0.05), vec2( 0.72,-0.02), r);
+                    float w2R = sdCapsule(p, vec2( 0.38,-0.10), vec2( 0.72,-0.14), r);
+                    float w3R = sdCapsule(p, vec2( 0.38,-0.00), vec2( 0.72, 0.06), r);
+                    float whiskers = min(min(min(w1L,w2L),min(w3L,w1R)),min(w2R,w3R));
 
-                // la máscara total: interior (SDF < 0) → 1, exterior → 0
-                // bigotes más tenues que el cuerpo
-                float bodyMask    = smoothstep( 0.04, -0.04, body);
-                float whiskerMask = smoothstep( 0.008,-0.008, whiskers) * 0.55;
-                return max(bodyMask, whiskerMask);
-            }
+                    // la máscara total: interior (SDF < 0) → 1, exterior → 0
+                    // bigotes más tenues que el cuerpo
+                    float bodyMask    = smoothstep( 0.04, -0.04, body);
+                    float whiskerMask = smoothstep( 0.008,-0.008, whiskers) * 0.55;
+                    return max(bodyMask, whiskerMask);
+                }
 
-            void main(){
-                vec2 uv = (vUv - 0.5) * 2.2;   // -1.1 … 1.1
+                void main(){
+                    vec2 uv = (vUv - 0.5) * 2.2;   // -1.1 … 1.1
 
-                float mask = catMask(uv);
-                if(mask < 0.01) discard;         // fuera del gato → transparente
+                    float mask = catMask(uv);
+                    if(mask < 0.01) discard;         // fuera del gato → transparente
 
-                // animación de nebulosa dentro de la silueta
-                float t = u_time * 0.08;
-                vec3 p  = vec3(uv * 2.5, t);
-                vec3 q  = vec3(fbm(p), fbm(p + vec3(1.7,0.9,2.3)), 0.0);
-                vec3 r2 = vec3(fbm(p + q*2.0 + t), fbm(p + q*1.8 - t), 0.0);
-                float den = fbm(p + r2 * 2.5);
-                den = smoothstep(0.15, 0.85, den);
-                den = pow(den, 1.6) * mask;      // recortado por silueta
+                    // animación de nebulosa dentro de la silueta
+                    float t = u_time * 0.08;
+                    vec3 p  = vec3(uv * 2.5, t);
+                    vec3 q  = vec3(fbm(p), fbm(p + vec3(1.7,0.9,2.3)), 0.0);
+                    vec3 r2 = vec3(fbm(p + q*2.0 + t), fbm(p + q*1.8 - t), 0.0);
+                    float den = fbm(p + r2 * 2.5);
+                    den = smoothstep(0.15, 0.85, den);
+                    den = pow(den, 1.6) * mask;      // recortado por silueta
 
-                // paleta: rosa-lila-violeta nacarado, como nebulosa de estrella
-                vec3 cA = vec3(0.08, 0.02, 0.28);  // violeta oscuro
-                vec3 cB = vec3(0.45, 0.05, 0.55);  // violeta medio
-                vec3 cC = vec3(0.80, 0.30, 0.75);  // rosa-malva
-                vec3 cD = vec3(0.95, 0.70, 0.90);  // blanco rosado
+                    // paleta: rosa-lila-violeta nacarado, como nebulosa de estrella
+                    vec3 cA = vec3(0.08, 0.02, 0.28);  // violeta oscuro
+                    vec3 cB = vec3(0.45, 0.05, 0.55);  // violeta medio
+                    vec3 cC = vec3(0.80, 0.30, 0.75);  // rosa-malva
+                    vec3 cD = vec3(0.95, 0.70, 0.90);  // blanco rosado
 
-                vec3 col = mix(cA, cB, smoothstep(0.0, 0.35, den));
-                col       = mix(col,cC, smoothstep(0.35,0.70, den));
-                col       = mix(col,cD, smoothstep(0.70,1.00, den));
+                    vec3 col = mix(cA, cB, smoothstep(0.0, 0.35, den));
+                    col       = mix(col,cC, smoothstep(0.35,0.70, den));
+                    col       = mix(col,cD, smoothstep(0.70,1.00, den));
 
-                // brillo suave en el núcleo de las orejas y el centro
-                float glow = smoothstep(0.6,1.0,den) * mask * 0.4;
-                col += vec3(0.3,0.1,0.4) * glow;
+                    // brillo suave en el núcleo de las orejas y el centro
+                    float glow = smoothstep(0.6,1.0,den) * mask * 0.4;
+                    col += vec3(0.3,0.1,0.4) * glow;
 
-                gl_FragColor = vec4(col, den * 0.82);
-            }
-        `;
+                    gl_FragColor = vec4(col, den * 0.82);
+                }
+            `;
 
         const catNebulaMat = new THREE.ShaderMaterial({
-            vertexShader:   catNebulaVert,
+            vertexShader: catNebulaVert,
             fragmentShader: catNebulaFrag,
             uniforms: { u_time: { value: 0.0 } },
             transparent: true,
-            depthWrite:  false,
-            blending:    THREE.AdditiveBlending,
-            side:        THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
         });
 
         // Posición en el hueco vacío: arriba-izquierda al fondo, bien separada del sol
@@ -1356,7 +1434,7 @@
             new THREE.PlaneGeometry(1400, 1400), catNebulaMat
         );
         catNebulaPlane.position.set(-1800, 900, 400);
-        catNebulaPlane.rotation.x =  0.20;
+        catNebulaPlane.rotation.x = 0.20;
         catNebulaPlane.rotation.y = -0.30;
         scene.add(catNebulaPlane);
 
@@ -1423,115 +1501,115 @@
         // Mismo shader de silueta de gato pero con u_seed para variación,
         // construida como grupo de 5 capas igual que crearNebulaVolumen.
         const catVolVertShader = `
-            varying vec2 vUv;
-            void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
-        `;
+                varying vec2 vUv;
+                void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
+            `;
         const catVolFragShader = `
-            uniform float u_time;
-            uniform float u_seed;
-            uniform float u_layerOp;
-            varying vec2 vUv;
+                uniform float u_time;
+                uniform float u_seed;
+                uniform float u_layerOp;
+                varying vec2 vUv;
 
-            float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
-            float noise(vec3 x){
-                vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
-                return mix(mix(mix(hash(i),            hash(i+vec3(1,0,0)),f.x),
-                               mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
-                           mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
-                               mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
-            }
-            float fbm(vec3 p){
-                float v=0.0,a=0.5;
-                for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.1+vec3(5.2+u_seed,1.3,3.7+u_seed*0.7);a*=0.5;}
-                return v;
-            }
+                float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+                float noise(vec3 x){
+                    vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
+                    return mix(mix(mix(hash(i),            hash(i+vec3(1,0,0)),f.x),
+                                   mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+                               mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
+                                   mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
+                }
+                float fbm(vec3 p){
+                    float v=0.0,a=0.5;
+                    for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.1+vec3(5.2+u_seed,1.3,3.7+u_seed*0.7);a*=0.5;}
+                    return v;
+                }
 
-            float sdCircle(vec2 p,vec2 c,float r){ return length(p-c)-r; }
-            float sdTriangle(vec2 p,vec2 a,vec2 b,vec2 c2){
-                vec2 e0=b-a,e1=c2-b,e2=a-c2;
-                vec2 v0=p-a,v1=p-b,v2=p-c2;
-                vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
-                vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
-                vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
-                float s=sign(e0.x*e2.y-e0.y*e2.x);
-                vec2 d=min(min(vec2(dot(pq0,pq0),s*(v0.x*e0.y-v0.y*e0.x)),
-                               vec2(dot(pq1,pq1),s*(v1.x*e1.y-v1.y*e1.x))),
-                               vec2(dot(pq2,pq2),s*(v2.x*e2.y-v2.y*e2.x)));
-                return -sqrt(d.x)*sign(d.y);
-            }
-            float sdCapsule(vec2 p,vec2 a,vec2 b,float r){
-                vec2 pa=p-a,ba=b-a;
-                return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0))-r;
-            }
-            // cuerpo del gato: elipse grande debajo de la cabeza
-            float sdEllipse(vec2 p,vec2 c,vec2 ab){
-                vec2 q=(p-c)/ab; return (length(q)-1.0)*min(ab.x,ab.y);
-            }
+                float sdCircle(vec2 p,vec2 c,float r){ return length(p-c)-r; }
+                float sdTriangle(vec2 p,vec2 a,vec2 b,vec2 c2){
+                    vec2 e0=b-a,e1=c2-b,e2=a-c2;
+                    vec2 v0=p-a,v1=p-b,v2=p-c2;
+                    vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
+                    vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
+                    vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
+                    float s=sign(e0.x*e2.y-e0.y*e2.x);
+                    vec2 d=min(min(vec2(dot(pq0,pq0),s*(v0.x*e0.y-v0.y*e0.x)),
+                                   vec2(dot(pq1,pq1),s*(v1.x*e1.y-v1.y*e1.x))),
+                                   vec2(dot(pq2,pq2),s*(v2.x*e2.y-v2.y*e2.x)));
+                    return -sqrt(d.x)*sign(d.y);
+                }
+                float sdCapsule(vec2 p,vec2 a,vec2 b,float r){
+                    vec2 pa=p-a,ba=b-a;
+                    return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0))-r;
+                }
+                // cuerpo del gato: elipse grande debajo de la cabeza
+                float sdEllipse(vec2 p,vec2 c,vec2 ab){
+                    vec2 q=(p-c)/ab; return (length(q)-1.0)*min(ab.x,ab.y);
+                }
 
-            float catFullMask(vec2 p){
-                // cabeza
-                float head = sdCircle(p, vec2(0.0, 0.28), 0.30);
-                // orejas
-                float earL = sdTriangle(p, vec2(-0.28,0.42),vec2(-0.06,0.42),vec2(-0.20,0.66));
-                float earR = sdTriangle(p, vec2( 0.06,0.42),vec2( 0.28,0.42),vec2( 0.20,0.66));
-                // cuerpo: elipse vertical centrada abajo
-                float body = sdEllipse(p, vec2(0.0,-0.22), vec2(0.26,0.38));
-                // cola: cápsula arqueada a la derecha
-                float tail1 = sdCapsule(p, vec2(0.26,-0.50), vec2(0.55,-0.38), 0.055);
-                float tail2 = sdCapsule(p, vec2(0.55,-0.38), vec2(0.68,-0.10), 0.048);
-                float tail3 = sdCapsule(p, vec2(0.68,-0.10), vec2(0.62, 0.12), 0.040);
-                float tail  = min(min(tail1,tail2),tail3);
-                // patas delanteras: dos cápsulas cortas abajo del cuerpo
-                float pL = sdCapsule(p, vec2(-0.14,-0.56), vec2(-0.14,-0.72), 0.055);
-                float pR = sdCapsule(p, vec2( 0.14,-0.56), vec2( 0.14,-0.72), 0.055);
-                // unión de todo
-                float solid = min(min(min(head,min(earL,earR)),body),min(min(tail,pL),pR));
-                // bigotes
-                float wr=0.011;
-                float w1L=sdCapsule(p,vec2(-0.28,0.28),vec2(-0.56,0.26),wr);
-                float w2L=sdCapsule(p,vec2(-0.28,0.24),vec2(-0.56,0.20),wr);
-                float w1R=sdCapsule(p,vec2( 0.28,0.28),vec2( 0.56,0.26),wr);
-                float w2R=sdCapsule(p,vec2( 0.28,0.24),vec2( 0.56,0.20),wr);
-                float whiskers=min(min(w1L,w2L),min(w1R,w2R));
-                float bodyMask    = smoothstep( 0.04,-0.04, solid);
-                float whiskerMask = smoothstep( 0.008,-0.008, whiskers)*0.5;
-                return max(bodyMask, whiskerMask);
-            }
+                float catFullMask(vec2 p){
+                    // cabeza
+                    float head = sdCircle(p, vec2(0.0, 0.28), 0.30);
+                    // orejas
+                    float earL = sdTriangle(p, vec2(-0.28,0.42),vec2(-0.06,0.42),vec2(-0.20,0.66));
+                    float earR = sdTriangle(p, vec2( 0.06,0.42),vec2( 0.28,0.42),vec2( 0.20,0.66));
+                    // cuerpo: elipse vertical centrada abajo
+                    float body = sdEllipse(p, vec2(0.0,-0.22), vec2(0.26,0.38));
+                    // cola: cápsula arqueada a la derecha
+                    float tail1 = sdCapsule(p, vec2(0.26,-0.50), vec2(0.55,-0.38), 0.055);
+                    float tail2 = sdCapsule(p, vec2(0.55,-0.38), vec2(0.68,-0.10), 0.048);
+                    float tail3 = sdCapsule(p, vec2(0.68,-0.10), vec2(0.62, 0.12), 0.040);
+                    float tail  = min(min(tail1,tail2),tail3);
+                    // patas delanteras: dos cápsulas cortas abajo del cuerpo
+                    float pL = sdCapsule(p, vec2(-0.14,-0.56), vec2(-0.14,-0.72), 0.055);
+                    float pR = sdCapsule(p, vec2( 0.14,-0.56), vec2( 0.14,-0.72), 0.055);
+                    // unión de todo
+                    float solid = min(min(min(head,min(earL,earR)),body),min(min(tail,pL),pR));
+                    // bigotes
+                    float wr=0.011;
+                    float w1L=sdCapsule(p,vec2(-0.28,0.28),vec2(-0.56,0.26),wr);
+                    float w2L=sdCapsule(p,vec2(-0.28,0.24),vec2(-0.56,0.20),wr);
+                    float w1R=sdCapsule(p,vec2( 0.28,0.28),vec2( 0.56,0.26),wr);
+                    float w2R=sdCapsule(p,vec2( 0.28,0.24),vec2( 0.56,0.20),wr);
+                    float whiskers=min(min(w1L,w2L),min(w1R,w2R));
+                    float bodyMask    = smoothstep( 0.04,-0.04, solid);
+                    float whiskerMask = smoothstep( 0.008,-0.008, whiskers)*0.5;
+                    return max(bodyMask, whiskerMask);
+                }
 
-            void main(){
-                vec2 uv=(vUv-0.5)*2.1;
-                float mask=catFullMask(uv);
-                if(mask<0.01) discard;
+                void main(){
+                    vec2 uv=(vUv-0.5)*2.1;
+                    float mask=catFullMask(uv);
+                    if(mask<0.01) discard;
 
-                float t=u_time*0.07+u_seed*2.3;
-                vec3 p=vec3(uv*2.5+u_seed*4.0,t);
-                vec3 q=vec3(fbm(p),fbm(p+vec3(1.7,0.9,2.3)),0.0);
-                vec3 r2=vec3(fbm(p+q*2.0+t),fbm(p+q*1.8-t),0.0);
-                float den=fbm(p+r2*2.5);
-                den=smoothstep(0.15,0.85,den);
-                den=pow(den,1.5)*mask;
+                    float t=u_time*0.07+u_seed*2.3;
+                    vec3 p=vec3(uv*2.5+u_seed*4.0,t);
+                    vec3 q=vec3(fbm(p),fbm(p+vec3(1.7,0.9,2.3)),0.0);
+                    vec3 r2=vec3(fbm(p+q*2.0+t),fbm(p+q*1.8-t),0.0);
+                    float den=fbm(p+r2*2.5);
+                    den=smoothstep(0.15,0.85,den);
+                    den=pow(den,1.5)*mask;
 
-                // paleta azul-turquesa-blanco nacarado (distinta al gato rosa)
-                vec3 cA=vec3(0.00,0.05,0.30);
-                vec3 cB=vec3(0.00,0.28,0.58);
-                vec3 cC=vec3(0.10,0.62,0.80);
-                vec3 cD=vec3(0.70,0.92,0.98);
-                vec3 col=mix(cA,cB,smoothstep(0.0,0.35,den));
-                col     =mix(col,cC,smoothstep(0.35,0.70,den));
-                col     =mix(col,cD,smoothstep(0.70,1.00,den));
-                col    +=vec3(0.05,0.20,0.35)*smoothstep(0.6,1.0,den)*mask*0.4;
+                    // paleta azul-turquesa-blanco nacarado (distinta al gato rosa)
+                    vec3 cA=vec3(0.00,0.05,0.30);
+                    vec3 cB=vec3(0.00,0.28,0.58);
+                    vec3 cC=vec3(0.10,0.62,0.80);
+                    vec3 cD=vec3(0.70,0.92,0.98);
+                    vec3 col=mix(cA,cB,smoothstep(0.0,0.35,den));
+                    col     =mix(col,cC,smoothstep(0.35,0.70,den));
+                    col     =mix(col,cD,smoothstep(0.70,1.00,den));
+                    col    +=vec3(0.05,0.20,0.35)*smoothstep(0.6,1.0,den)*mask*0.4;
 
-                gl_FragColor=vec4(col, den*u_layerOp);
-            }
-        `;
+                    gl_FragColor=vec4(col, den*u_layerOp);
+                }
+            `;
 
         // 5 capas volumétricas — misma lógica que crearNebulaVolumen
         const catVolCapas = [
-            { dz:   0, scale:1.00, seed:0.0, op:0.65, rx: 0.00, ry: 0.00 },
-            { dz:  45, scale:0.84, seed:1.4, op:0.50, rx: 0.16, ry: 0.11 },
-            { dz: -45, scale:0.90, seed:2.8, op:0.45, rx:-0.14, ry:-0.09 },
-            { dz:  85, scale:0.66, seed:4.2, op:0.36, rx: 0.26, ry:-0.18 },
-            { dz: -80, scale:0.71, seed:5.6, op:0.30, rx:-0.20, ry: 0.17 },
+            { dz: 0, scale: 1.00, seed: 0.0, op: 0.65, rx: 0.00, ry: 0.00 },
+            { dz: 45, scale: 0.84, seed: 1.4, op: 0.50, rx: 0.16, ry: 0.11 },
+            { dz: -45, scale: 0.90, seed: 2.8, op: 0.45, rx: -0.14, ry: -0.09 },
+            { dz: 85, scale: 0.66, seed: 4.2, op: 0.36, rx: 0.26, ry: -0.18 },
+            { dz: -80, scale: 0.71, seed: 5.6, op: 0.30, rx: -0.20, ry: 0.17 },
         ];
         const catVolGroup = new THREE.Group();
         catVolGroup.position.set(-1500, 500, -2400);
@@ -1540,17 +1618,17 @@
         const catVolMats = [];
         catVolCapas.forEach(c => {
             const mat = new THREE.ShaderMaterial({
-                vertexShader:   catVolVertShader,
+                vertexShader: catVolVertShader,
                 fragmentShader: catVolFragShader,
                 uniforms: {
-                    u_time:    { value: 0.0 },
-                    u_seed:    { value: c.seed },
+                    u_time: { value: 0.0 },
+                    u_seed: { value: c.seed },
                     u_layerOp: { value: c.op },
                 },
                 transparent: true, depthWrite: false,
                 blending: THREE.AdditiveBlending, side: THREE.DoubleSide
             });
-            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(950*c.scale, 950*c.scale), mat);
+            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(950 * c.scale, 950 * c.scale), mat);
             mesh.position.set(0, 0, c.dz);
             mesh.rotation.x = 0.35 + c.rx;
             mesh.rotation.y = c.ry;
