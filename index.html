@@ -1285,311 +1285,176 @@
             if (catMaterials.length > 0) { const cg = new THREE.Sprite(catMaterials[0]); cg.scale.set(40, 40, 1); cg.position.set(-25, 30, 5); centerGroup.add(cg); }
         }
 
-        // ── TEXTURA TIERRA REALISTA (océanos + continentes + nubes separadas) ──────
-        function crearTexturaTierra() {
-            const s = 2048, c = document.createElement('canvas'); c.width = s; c.height = s;
-            const x = c.getContext('2d');
-
-            // ── Ruido orgánico para variación de color ──────────────────────────────
-            function ruido(px, py, freq, seedA, seedB) {
-                const a = Math.sin(px * freq + seedA) * Math.cos(py * freq * 1.3 + seedB);
-                const b = Math.sin((px + py) * freq * 0.7 + seedA * 1.7);
-                const cN = Math.cos((px - py) * freq * 0.5 + seedB * 2.1);
-                return (a * 0.5 + b * 0.3 + cN * 0.2);
+        // ── TIERRA PROCEDURAL POR SHADER (GPU) ──────────────────────────────────
+        // En vez de pintar una textura de 2048x2048 a mano en un <canvas> (lento
+        // de generar al cargar), los biomas/océanos/nubes se calculan en tiempo
+        // real dentro de un fragment shader (GLSL) que corre en la GPU. Resultado
+        // visual equivalente (océanos, selva, desierto, tundra, hielo, nubes en
+        // movimiento) pero sin ese costo de arranque.
+        const noiseGLSLTierra = `
+            vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            float snoiseTierra(vec3 v) {
+                const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+                const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+                vec3 i  = floor(v + dot(v, C.yyy) );
+                vec3 x0 = v - i + dot(i, C.xxx) ;
+                vec3 g = step(x0.yzx, x0.xyz);
+                vec3 l = 1.0 - g;
+                vec3 i1 = min( g.xyz, l.zxy );
+                vec3 i2 = max( g.xyz, l.zxy );
+                vec3 x1 = x0 - i1 + C.xxx;
+                vec3 x2 = x0 - i2 + C.yyy;
+                vec3 x3 = x0 - D.yyy;
+                i = mod289(i);
+                vec4 p = permute( permute( permute(
+                            i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                          + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+                          + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+                float n_ = 0.142857142857;
+                vec3  ns = n_ * D.wyz - D.xzx;
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                vec4 x_ = floor(j * ns.z);
+                vec4 y_ = floor(j - 7.0 * x_ );
+                vec4 x = x_ *ns.x + ns.yyyy;
+                vec4 y = y_ *ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+                vec4 b0 = vec4( x.xy, y.xy );
+                vec4 b1 = vec4( x.zw, y.zw );
+                vec4 s0 = floor(b0)*2.0 + 1.0;
+                vec4 s1 = floor(b1)*2.0 + 1.0;
+                vec4 sh = -step(h, vec4(0.0));
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+                vec3 p0 = vec3(a0.xy,h.x);
+                vec3 p1 = vec3(a0.zw,h.y);
+                vec3 p2 = vec3(a1.xy,h.z);
+                vec3 p3 = vec3(a1.zw,h.w);
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                p0 *= norm.x;
+                p1 *= norm.y;
+                p2 *= norm.z;
+                p3 *= norm.w;
+                vec4 m = max(0.5 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                m = m * m;
+                return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
             }
-            function fbm(px, py, oct, sA, sB) {
-                let t = 0, a = 0.6, f = 0.005;
-                for (let o = 0; o < oct; o++) { t += ruido(px, py, f, sA + o, sB + o) * a; f *= 2.1; a *= 0.55; }
-                return t;
-            }
-
-            // ── Océano base: gradiente azul profundo realista como la foto ──────────
-            const oceanoImg = x.createImageData(s, s);
-            for (let py = 0; py < s; py++) {
-                const lat = (0.5 - py / s) * 180; // -90..90
-                const latFac = Math.cos(lat * Math.PI / 180);
-                for (let px = 0; px < s; px++) {
-                    const n = fbm(px * 0.5, py * 0.5, 4, 12, 47) * 0.15;
-                    // Azul Ecuador más claro y brillante, polos más oscuros
-                    const mix = Math.max(0, Math.min(1, latFac * 0.7 + n + 0.18));
-                    // Color base: azul marino profundo → azul medio brillante ecuatorial
-                    oceanoImg.data[(py * s + px) * 4]     = Math.round(5  + 22  * mix);
-                    oceanoImg.data[(py * s + px) * 4 + 1] = Math.round(28 + 78  * mix);
-                    oceanoImg.data[(py * s + px) * 4 + 2] = Math.round(88 + 105 * mix);
-                    oceanoImg.data[(py * s + px) * 4 + 3] = 255;
+            float fbmTierra(vec3 x) {
+                float v = 0.0;
+                float a = 0.5;
+                vec3 shift = vec3(100);
+                for (int i = 0; i < 5; ++i) {
+                    v += a * snoiseTierra(x);
+                    x = x * 2.0 + shift;
+                    a *= 0.5;
                 }
+                return v;
             }
-            x.putImageData(oceanoImg, 0, 0);
+        `;
 
-            // ── Proyección equirectangular ──────────────────────────────────────────
-            function ll(lon, lat) { return [(lon + 180) / 360 * s, (90 - lat) / 180 * s]; }
-
-            // ── Helper: relleno con degradado radial para suavizar bordes ──────────
-            function fillBlob(puntos, r, g, b, blur = 0) {
-                x.beginPath();
-                puntos.forEach(([lon, lat], i) => {
-                    const [px, py] = ll(lon, lat);
-                    if (i === 0) x.moveTo(px, py); else x.lineTo(px, py);
-                });
-                x.closePath();
-                x.fillStyle = `rgb(${r},${g},${b})`;
-                x.fill();
+        const tierraVertexShader = `
+            varying vec3 vNormalT;
+            varying vec3 vPositionT;
+            varying vec3 vWorldPositionT;
+            void main() {
+                vNormalT = normalize(normalMatrix * normal);
+                // El shader de bioma/nubes está calibrado para una esfera de
+                // radio 1 (igual que en el original). Aquí la Tierra tiene
+                // radio 28, así que normalizamos la posición para conservar
+                // exactamente la misma escala de ruido/latitud sin tener que
+                // tocar nada del sistema de órbitas ni la geometría existente.
+                vPositionT = normalize(position);
+                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                vWorldPositionT = worldPos.xyz;
+                gl_Position = projectionMatrix * viewMatrix * worldPos;
             }
+        `;
 
-            // ═══════════════════════════════════════════════════════════════════════
-            // NORTEAMÉRICA
-            // ═══════════════════════════════════════════════════════════════════════
-            // Masa continental principal — verde bosque templado
-            fillBlob([
-                [-168,62],[-152,72],[-140,72],[-120,72],[-95,70],[-82,62],[-65,50],
-                [-52,47],[-58,45],[-75,35],[-81,25],[-88,16],[-85,10],[-78,8],
-                [-78,8],[-85,15],[-97,26],[-105,21],[-118,30],[-124,38],
-                [-124,50],[-132,56],[-145,61],[-168,62]
-            ], 48, 100, 48);
+        const tierraFragmentShader = `
+            ${noiseGLSLTierra}
+            varying vec3 vNormalT;
+            varying vec3 vPositionT;
+            varying vec3 vWorldPositionT;
+            uniform vec3 uSunDirT;
+            uniform vec3 uCameraPosT;
 
-            // Bosque noreste / costa este
-            fillBlob([[-85,48],[-65,48],[-65,36],[-80,32],[-85,38],[-85,48]], 45, 90, 40);
+            void main() {
+                float elevation = fbmTierra(vPositionT * 2.5);
+                float latitude = abs(vPositionT.y);
 
-            // Desierto del suroeste (México, SW USA) — arena/naranja
-            fillBlob([
-                [-118,35],[-108,38],[-100,32],[-95,28],[-98,22],[-105,22],[-115,28],[-118,35]
-            ], 195, 155, 80);
+                vec3 deepWater = vec3(0.02, 0.08, 0.25);
+                vec3 shallowWater = vec3(0.08, 0.35, 0.65);
+                vec3 jungle = vec3(0.05, 0.25, 0.05);
+                vec3 forest = vec3(0.15, 0.35, 0.1);
+                vec3 desert = vec3(0.7, 0.6, 0.4);
+                vec3 tundra = vec3(0.4, 0.4, 0.35);
+                vec3 ice = vec3(0.95, 0.98, 1.0);
 
-            // México interior — más árido
-            fillBlob([[-105,28],[-90,20],[-87,14],[-92,16],[-98,22],[-105,22]], 175, 140, 70);
+                vec3 color;
+                float specularity = 0.0;
+                vec3 normal = normalize(vNormalT);
+                float seaLevel = 0.05;
 
-            // Grandes Llanuras — sabana/pastizal
-            fillBlob([[-108,50],[-95,50],[-95,30],[-105,28],[-108,38]], 140, 130, 65);
+                if (elevation < seaLevel) {
+                    color = mix(deepWater, shallowWater, smoothstep(-0.5, seaLevel, elevation));
+                    if (latitude > 0.85 + fbmTierra(vPositionT * 10.0) * 0.1) {
+                        color = ice;
+                        specularity = 0.2;
+                    } else {
+                        specularity = 1.0;
+                    }
+                } else {
+                    specularity = 0.0;
+                    if (latitude < 0.25) {
+                        color = mix(jungle, forest, smoothstep(0.1, 0.25, latitude));
+                    } else if (latitude < 0.5) {
+                        color = mix(forest, desert, smoothstep(0.25, 0.4, latitude));
+                    } else if (latitude < 0.75) {
+                        color = mix(desert, tundra, smoothstep(0.5, 0.7, latitude));
+                    } else {
+                        color = mix(tundra, ice, smoothstep(0.75, 0.85, latitude));
+                    }
+                    if (elevation > 0.5) {
+                        color = mix(color, ice, smoothstep(0.5, 0.7, elevation));
+                    }
+                    float eps = 0.02;
+                    float dx = fbmTierra((vPositionT + vec3(eps, 0.0, 0.0)) * 2.5) - elevation;
+                    float dy = fbmTierra((vPositionT + vec3(0.0, eps, 0.0)) * 2.5) - elevation;
+                    float dz = fbmTierra((vPositionT + vec3(0.0, 0.0, eps)) * 2.5) - elevation;
+                    normal = normalize(normal - vec3(dx, dy, dz) * 2.0);
+                }
 
-            // Taiga canadiense — verde oscuro
-            fillBlob([[-140,62],[-95,62],[-82,56],[-75,48],[-90,48],[-108,50],[-140,55]], 38, 75, 35);
+                float diffuse = max(dot(normal, uSunDirT), 0.0);
+                float ambient = 0.06;
+                vec3 viewDir = normalize(uCameraPosT - vWorldPositionT);
+                vec3 halfVector = normalize(uSunDirT + viewDir);
+                float specularAngle = max(dot(normal, halfVector), 0.0);
+                float specular = pow(specularAngle, 64.0) * specularity * diffuse;
 
-            // Groenlandia — blanco hielo
-            fillBlob([
-                [-56,60],[-42,60],[-20,70],[-18,76],[-30,83],[-55,82],[-60,78],[-56,60]
-            ], 230, 235, 245);
-
-            // ═══════════════════════════════════════════════════════════════════════
-            // SUDAMÉRICA
-            // ═══════════════════════════════════════════════════════════════════════
-            // Amazon rainforest — verde intensísimo
-            fillBlob([
-                [-80,8],[-72,12],[-60,6],[-50,2],[-45,-5],[-50,-12],[-60,-14],
-                [-68,-12],[-75,-5],[-80,3],[-80,8]
-            ], 18, 110, 32);
-
-            // Masa continental sur
-            fillBlob([
-                [-80,10],[-60,12],[-35,-5],[-35,-18],[-43,-22],[-48,-28],
-                [-50,-32],[-55,-38],[-65,-55],[-68,-54],[-67,-48],[-60,-50],
-                [-58,-40],[-52,-33],[-48,-26],[-42,-22],[-40,-10],[-45,-2],
-                [-50,2],[-60,8],[-70,12],[-80,10]
-            ], 65, 140, 52);
-
-            // Andes y Pampa — marrón/sabana
-            fillBlob([
-                [-75,-10],[-68,-14],[-65,-22],[-68,-35],[-70,-42],[-72,-48],
-                [-68,-52],[-65,-52],[-62,-42],[-60,-32],[-60,-22],[-65,-16],[-75,-10]
-            ], 110, 115, 60);
-
-            // Cerrado (Brasil central) — sabana
-            fillBlob([[-50,-12],[-42,-18],[-44,-24],[-50,-28],[-56,-22],[-55,-14],[-50,-12]], 130, 120, 58);
-
-            // ═══════════════════════════════════════════════════════════════════════
-            // EUROPA
-            // ═══════════════════════════════════════════════════════════════════════
-            fillBlob([
-                [-10,36],[-10,44],[-2,48],[-5,50],[-2,52],[5,54],[10,58],[18,60],
-                [25,62],[28,58],[30,52],[28,46],[22,38],[18,40],[12,38],[8,38],
-                [2,43],[-5,44],[-10,36]
-            ], 52, 105, 48);
-
-            // Península ibérica — más árida
-            fillBlob([[-9,36],[-5,36],[2,40],[2,44],[-2,44],[-9,43],[-9,36]], 138, 128, 68);
-
-            // Escandinavia
-            fillBlob([[5,58],[8,58],[12,62],[18,68],[28,72],[18,72],[8,64],[5,58]], 45, 90, 42);
-
-            // ═══════════════════════════════════════════════════════════════════════
-            // ÁFRICA
-            // ═══════════════════════════════════════════════════════════════════════
-            // Masa continental base — sabana central/sur
-            fillBlob([
-                [-18,16],[-5,36],[10,37],[22,35],[32,32],[38,28],[42,12],[50,12],
-                [44,4],[40,-4],[35,-18],[32,-28],[26,-34],[18,-34],[12,-18],[8,-5],
-                [-6,5],[-18,14],[-18,16]
-            ], 148, 130, 62);
-
-            // Sahara — arena muy clara, naranja
-            fillBlob([
-                [-18,16],[0,22],[10,24],[20,24],[28,22],[35,22],[35,16],[28,14],
-                [20,15],[10,16],[0,16],[-12,16],[-18,16]
-            ], 218, 178, 95);
-
-            // Desierto del Sahara norte (más claro aún)
-            fillBlob([[0,30],[18,32],[28,26],[18,22],[0,22]], 228, 192, 108);
-
-            // Cuerno de África / Somalia — árido marrón
-            fillBlob([[38,12],[50,12],[44,4],[38,6],[35,10],[38,12]], 190, 158, 85);
-
-            // África subsahariana occidental — sabana verde
-            fillBlob([[-18,16],[-16,5],[-8,5],[0,8],[8,8],[8,0],[0,0],[-6,5],[-18,14]], 110, 118, 52);
-
-            // Selva del Congo — verde intenso
-            fillBlob([[8,6],[20,8],[26,2],[26,-5],[20,-8],[12,-6],[8,0],[8,6]], 22, 108, 35);
-
-            // Kalahari — árido más suave
-            fillBlob([[18,-18],[28,-18],[28,-28],[20,-28],[16,-22],[18,-18]], 168, 145, 80);
-
-            // Madagascar — verde/marrón
-            fillBlob([[44,-12],[50,-14],[50,-22],[44,-26],[42,-20],[44,-12]], 80, 120, 55);
-
-            // ═══════════════════════════════════════════════════════════════════════
-            // ASIA
-            // ═══════════════════════════════════════════════════════════════════════
-            // Masa asiática base — verde templado
-            fillBlob([
-                [28,46],[38,38],[48,32],[58,42],[65,42],[75,40],[80,28],
-                [88,28],[100,28],[108,22],[112,18],[108,12],[100,5],[95,14],
-                [88,26],[80,22],[72,8],[78,20],[60,28],[50,28],[48,32],
-                [35,38],[28,46]
-            ], 55, 108, 50);
-
-            // Siberia / taiga — verde oscuro
-            fillBlob([
-                [55,52],[80,52],[100,55],[120,58],[140,60],[158,68],
-                [140,72],[110,72],[80,72],[60,62],[55,52]
-            ], 38, 78, 36);
-
-            // Tundra ártica Asia — gris-verde
-            fillBlob([
-                [60,68],[100,68],[140,68],[158,68],[140,72],[100,72],[60,68]
-            ], 88, 98, 75);
-
-            // Desierto de Arabia — naranja distintivo de la foto
-            fillBlob([
-                [32,32],[38,30],[42,22],[50,12],[58,14],[60,22],[55,28],
-                [48,32],[40,32],[35,28],[32,32]
-            ], 210, 165, 82);
-
-            // Desierto de Gobi / Mongolia — marrón árido
-            fillBlob([[80,42],[100,48],[120,48],[120,40],[100,38],[80,38],[80,42]], 175, 148, 85);
-
-            // Meseta del Tíbet — marrón/gris altitude
-            fillBlob([[75,28],[92,30],[100,36],[92,38],[78,36],[75,28]], 148, 128, 88);
-
-            // Desierto de Irán / Asia Central — marrón cálido
-            fillBlob([[48,32],[65,38],[80,38],[78,30],[65,25],[55,25],[48,32]], 188, 155, 82);
-
-            // India — verde-marrón
-            fillBlob([[65,25],[78,28],[82,22],[80,10],[72,8],[65,12],[62,20],[65,25]], 88, 128, 55);
-
-            // Sudeste asiático / Indochina — verde
-            fillBlob([[95,26],[108,22],[112,18],[108,14],[100,12],[95,18],[95,26]], 42, 115, 48);
-
-            // China este / costa — verde
-            fillBlob([[108,22],[125,32],[128,40],[120,42],[108,35],[105,28],[108,22]], 55, 112, 48);
-
-            // Japón / Corea (islotes) — verde
-            fillBlob([[128,34],[132,34],[132,38],[128,38],[128,34]], 52, 105, 48);
-            fillBlob([[130,32],[132,32],[132,34],[130,32]], 52, 105, 48);
-
-            // ═══════════════════════════════════════════════════════════════════════
-            // AUSTRALIA
-            // ═══════════════════════════════════════════════════════════════════════
-            // Masa principal — marrón-rojizo árido como la foto
-            fillBlob([
-                [114,-22],[122,-18],[130,-12],[137,-12],[142,-12],
-                [148,-18],[153,-26],[150,-36],[140,-38],[135,-35],
-                [128,-32],[115,-34],[113,-26],[114,-22]
-            ], 172, 115, 55);
-
-            // Interior árido — más rojo aún
-            fillBlob([[122,-22],[138,-22],[138,-30],[125,-32],[118,-28],[122,-22]], 195, 105, 48);
-
-            // Costa este verde
-            fillBlob([[148,-20],[153,-26],[150,-36],[144,-38],[145,-28],[148,-20]], 78, 118, 52);
-
-            // Costa sur/suroeste — más verde
-            fillBlob([[113,-30],[128,-32],[128,-34],[115,-34],[113,-30]], 92, 128, 58);
-
-            // Nueva Zelanda
-            fillBlob([[170,-36],[175,-36],[175,-42],[170,-42],[170,-36]], 65, 115, 50);
-            fillBlob([[168,-44],[172,-44],[172,-46],[168,-46],[168,-44]], 60, 108, 48);
-
-            // ═══════════════════════════════════════════════════════════════════════
-            // ANTÁRTIDA — blanco hielo
-            // ═══════════════════════════════════════════════════════════════════════
-            fillBlob([
-                [-180,-70],[180,-70],[180,-90],[-180,-90],[-180,-70]
-            ], 228, 232, 245);
-
-            // ── Casquete polar norte — más amplio, como la foto ─────────────────
-            const polo1 = x.createLinearGradient(0, 0, 0, s * 0.10);
-            polo1.addColorStop(0, 'rgba(228,232,245,1)');
-            polo1.addColorStop(0.7, 'rgba(210,218,238,0.7)');
-            polo1.addColorStop(1, 'rgba(200,210,235,0)');
-            x.fillStyle = polo1; x.fillRect(0, 0, s, s * 0.10);
-
-            // Casquete polar sur
-            const polo2 = x.createLinearGradient(0, s * 0.88, 0, s);
-            polo2.addColorStop(0, 'rgba(220,228,242,0)');
-            polo2.addColorStop(0.5, 'rgba(228,232,245,0.85)');
-            polo2.addColorStop(1, 'rgba(235,238,250,1)');
-            x.fillStyle = polo2; x.fillRect(0, s * 0.88, s, s * 0.12);
-
-            // ── Especular agua (brillo suave en océanos expuestos) ──────────────
-            // Pequeña capa de transparencia para ver variación de profundidad
-            for (let i = 0; i < 8; i++) {
-                const cx = Math.random() * s * 0.8 + s * 0.1;
-                const cy = s * 0.15 + Math.random() * s * 0.7;
-                const rw = 60 + Math.random() * 200, rh = rw * (0.3 + Math.random() * 0.4);
-                const grad = x.createRadialGradient(cx, cy, 0, cx, cy, rw);
-                grad.addColorStop(0, 'rgba(100,180,255,0.08)');
-                grad.addColorStop(1, 'rgba(100,180,255,0)');
-                x.save(); x.translate(cx, cy); x.rotate(Math.random() * Math.PI);
-                x.scale(1, rh / rw); x.fillStyle = grad;
-                x.beginPath(); x.arc(0, 0, rw, 0, Math.PI * 2); x.fill(); x.restore();
+                vec3 finalColor = color * (diffuse + ambient) + vec3(1.0) * specular;
+                gl_FragColor = vec4(finalColor, 1.0);
             }
+        `;
 
-            const tex = new THREE.CanvasTexture(c);
-            tex.colorSpace = THREE.SRGBColorSpace;
-            return tex;
-        }
-
-        // Capa de nubes: textura separada con alpha (transparente donde no hay nube)
-        function crearTexturaNubes() {
-            const s = 1024, c = document.createElement('canvas'); c.width = s; c.height = s;
-            const x = c.getContext('2d'); x.clearRect(0, 0, s, s);
-            // Sistemas de nubes grandes tipo frentes meteorológicos
-            for (let i = 0; i < 35; i++) {
-                const cx = Math.random() * s, cy = Math.random() * s;
-                const rw = 55 + Math.random() * 140, rh = rw * (0.25 + Math.random() * 0.35);
-                const grad = x.createRadialGradient(cx, cy, 0, cx, cy, rw);
-                const op = 0.35 + Math.random() * 0.45;
-                grad.addColorStop(0, `rgba(255,255,255,${op})`);
-                grad.addColorStop(0.5, `rgba(255,255,255,${op * 0.5})`);
-                grad.addColorStop(1, 'rgba(255,255,255,0)');
-                x.save(); x.translate(cx, cy); x.rotate(Math.random() * Math.PI);
-                x.scale(1, rh / rw); x.fillStyle = grad;
-                x.beginPath(); x.arc(0, 0, rw, 0, Math.PI * 2); x.fill(); x.restore();
+        const nubesFragmentShader = `
+            ${noiseGLSLTierra}
+            varying vec3 vNormalT;
+            varying vec3 vPositionT;
+            uniform vec3 uSunDirT;
+            uniform float uTimeT;
+            void main() {
+                vec3 noisePos = vPositionT * 3.0;
+                noisePos.x += uTimeT * 0.02;
+                noisePos.y += uTimeT * 0.01;
+                float cloudNoise = fbmTierra(noisePos);
+                float alpha = smoothstep(0.4, 0.7, cloudNoise);
+                float diffuse = max(dot(normalize(vNormalT), uSunDirT), 0.0);
+                vec3 color = vec3(1.0) * (diffuse * 0.8 + 0.25);
+                gl_FragColor = vec4(color, alpha * (diffuse + 0.15));
             }
-            // Nubosidad fina adicional
-            for (let i = 0; i < 80; i++) {
-                const cx = Math.random() * s, cy = Math.random() * s;
-                const rw = 15 + Math.random() * 55, rh = rw * (0.3 + Math.random() * 0.4);
-                const grad = x.createRadialGradient(cx, cy, 0, cx, cy, rw);
-                const op = 0.15 + Math.random() * 0.28;
-                grad.addColorStop(0, `rgba(255,255,255,${op})`);
-                grad.addColorStop(1, 'rgba(255,255,255,0)');
-                x.save(); x.translate(cx, cy); x.rotate(Math.random() * Math.PI);
-                x.scale(1, rh / rw); x.fillStyle = grad;
-                x.beginPath(); x.arc(0, 0, rw, 0, Math.PI * 2); x.fill(); x.restore();
-            }
-            const tex = new THREE.CanvasTexture(c);
-            tex.colorSpace = THREE.SRGBColorSpace;
-            return tex;
-        }
+        `;
 
         // ── PLANETAS ──────────────────────────────────────────────────────────────
         // Pequeño glow propio (sprite con degradado) para que cada planeta
@@ -1648,15 +1513,31 @@
         // más grande con la capa de nubes (textura con alpha), rotando a su propia
         // velocidad para que el efecto de movimiento atmosférico se vea real.
         // La Luna es un grupo hijo de la Tierra: orbita alrededor de ella, no del sol.
-        const earthMesh = new THREE.Mesh(
-            new THREE.SphereGeometry(28, 64, 64),
-            new THREE.MeshStandardMaterial({ map: crearTexturaTierra(), roughness: 0.75, metalness: 0.0, emissive: 0x0a1a33, emissiveIntensity: 0.08 })
-        );
+        // uSunDirT se recalcula cada frame (ver loop de animación) porque, a
+        // diferencia de una escena con sol fijo, aquí la Tierra orbita alrededor
+        // del sunLight real (origen 0,0,0), así que la dirección de la luz
+        // respecto al planeta cambia constantemente.
+        const tierraMaterial = new THREE.ShaderMaterial({
+            vertexShader: tierraVertexShader,
+            fragmentShader: tierraFragmentShader,
+            uniforms: {
+                uSunDirT: { value: new THREE.Vector3(1, 0, 0) },
+                uCameraPosT: { value: camera.position }
+            }
+        });
+        const earthMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(28, 5), tierraMaterial);
         solarSystem.add(earthMesh);
-        const cloudsMesh = new THREE.Mesh(
-            new THREE.SphereGeometry(28.6, 64, 64),
-            new THREE.MeshStandardMaterial({ map: crearTexturaNubes(), transparent: true, depthWrite: false, roughness: 1.0 })
-        );
+        const nubesMaterial = new THREE.ShaderMaterial({
+            vertexShader: tierraVertexShader,
+            fragmentShader: nubesFragmentShader,
+            uniforms: {
+                uSunDirT: { value: new THREE.Vector3(1, 0, 0) },
+                uTimeT: { value: 0.0 }
+            },
+            transparent: true,
+            depthWrite: false
+        });
+        const cloudsMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(28.6, 5), nubesMaterial);
         earthMesh.add(cloudsMesh);
         crearGlowPlaneta(earthMesh, 28, '#5fa8ff', 0.22);
         registrarOrbita(earthMesh, 360, 0.002, 0.0018);
@@ -2850,6 +2731,15 @@
                 lunaMesh.position.set(Math.cos(lu.ang) * lu.radio, 0, Math.sin(lu.ang) * lu.radio);
                 lunaMesh.rotation.y += lu.spin;
             }
+            // Shader de la Tierra: la dirección del sol se recalcula cada frame
+            // porque el planeta orbita (a diferencia de un sol fijo), y uTimeT
+            // anima el desplazamiento de las nubes.
+            const tNowTierra = (Date.now() - clockNebula.start) * 0.001;
+            const sunDirTierra = earthMesh.position.clone().multiplyScalar(-1).normalize();
+            tierraMaterial.uniforms.uSunDirT.value.copy(sunDirTierra);
+            tierraMaterial.uniforms.uCameraPosT.value.copy(camera.position);
+            nubesMaterial.uniforms.uSunDirT.value.copy(sunDirTierra);
+            nubesMaterial.uniforms.uTimeT.value = tNowTierra;
             scene.children.forEach(c => { if (c.isSprite && c.userData.sp) c.position.y = c.userData.y + Math.sin(Date.now() * 0.002) * 2; });
             milkyWay.rotation.y += 0.00005;
             dustParticles.rotation.y += 0.00008; dustParticles.rotation.x += 0.00003;
@@ -2874,4 +2764,3 @@
         });
     </script>
 </body>
-</html>
