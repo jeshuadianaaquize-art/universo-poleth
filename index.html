@@ -499,8 +499,8 @@
         // Import "blindado": si lyrics.js no existe, no está en la misma
         // carpeta, o el navegador bloquea módulos (file://), el universo
         // sigue cargando igual. Las letras simplemente no funcionarán.
-        let inicializarLetras = () => {};
-        let letrasCancionCambiada = () => {};
+        let inicializarLetras = () => { };
+        let letrasCancionCambiada = () => { };
         try {
             const mod = await import('./lyrics.js');
             inicializarLetras = mod.inicializarLetras;
@@ -906,14 +906,96 @@
         // ── TEXTURA PLANETA ───────────────────────────────────────────────────────
         function crearTexturaPlaneta(c1, c2, tipo) {
             const s = 1024, c = document.createElement('canvas'); c.width = s; c.height = s;
-            const x = c.getContext('2d'); x.fillStyle = c1; x.fillRect(0, 0, s, s);
-            const n = tipo == 'gas' ? 500 : 1200;
-            for (let i = 0; i < n; i++) {
-                x.globalAlpha = 0.4; x.fillStyle = c2; x.beginPath();
-                const p = Math.random() * s, q = Math.random() * s, r = Math.random() * (tipo == 'gas' ? 35 : 12);
-                if (tipo == 'gas') x.ellipse(p, q, r * 3, r / 3, Math.random(), 0, 6); else x.arc(p, q, r, 0, 6); x.fill();
+            const x = c.getContext('2d');
+
+            // Función auxiliar: interpola entre dos colores hex (0..1)
+            function hexToRgb(hex) {
+                const v = parseInt(hex.replace('#', ''), 16);
+                return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
             }
-            return new THREE.CanvasTexture(c);
+            function rgbToCss(r, g, b, a = 1) { return `rgba(${r | 0},${g | 0},${b | 0},${a})`; }
+            const rgb1 = hexToRgb(c1), rgb2 = hexToRgb(c2);
+
+            if (tipo === 'gas') {
+                // ── Planeta gaseoso: bandas horizontales onduladas + tormentas ─────
+                const bandas = 14;
+                for (let by = 0; by < s; by++) {
+                    const t = by / s;
+                    // Ondulación de la frontera entre bandas (no rectas, como Júpiter)
+                    const onda = Math.sin(t * bandas * Math.PI * 2) * 0.5 + 0.5;
+                    const mezcla = onda * 0.6 + Math.sin(t * 37.0) * 0.06;
+                    const r = rgb1[0] + (rgb2[0] - rgb1[0]) * mezcla;
+                    const g = rgb1[1] + (rgb2[1] - rgb1[1]) * mezcla;
+                    const b = rgb1[2] + (rgb2[2] - rgb1[2]) * mezcla;
+                    x.fillStyle = rgbToCss(r, g, b);
+                    x.fillRect(0, by, s, 1);
+                }
+                // Remolinos/tormentas ovaladas (tipo Gran Mancha Roja) encima de las bandas
+                for (let i = 0; i < 18; i++) {
+                    const px = Math.random() * s, py = Math.random() * s;
+                    const rw = 25 + Math.random() * 70, rh = rw * (0.35 + Math.random() * 0.3);
+                    const tono = Math.random() < 0.5 ? rgb2 : rgb1;
+                    const grad = x.createRadialGradient(px, py, 0, px, py, rw);
+                    grad.addColorStop(0, rgbToCss(tono[0] * 1.15, tono[1] * 1.1, tono[2] * 1.1, 0.5));
+                    grad.addColorStop(1, rgbToCss(tono[0], tono[1], tono[2], 0));
+                    x.save(); x.translate(px, py); x.rotate(Math.random() * Math.PI);
+                    x.scale(1, rh / rw); x.fillStyle = grad;
+                    x.beginPath(); x.arc(0, 0, rw, 0, Math.PI * 2); x.fill(); x.restore();
+                }
+                // Vetas finas de turbulencia
+                for (let i = 0; i < 260; i++) {
+                    x.globalAlpha = 0.06 + Math.random() * 0.10;
+                    x.fillStyle = Math.random() < 0.5 ? rgbToCss(...rgb2) : rgbToCss(255, 255, 255);
+                    const py = Math.random() * s, px = Math.random() * s, len = 20 + Math.random() * 80;
+                    x.fillRect(px, py, len, 1 + Math.random() * 2);
+                }
+                x.globalAlpha = 1;
+            } else {
+                // ── Planeta rocoso: base con variación de tono + cráteres con sombra ──
+                // Base con ligero ruido de tono para que no sea un color plano
+                const baseGrad = x.createLinearGradient(0, 0, s, s);
+                baseGrad.addColorStop(0, rgbToCss(rgb1[0] * 1.08, rgb1[1] * 1.08, rgb1[2] * 1.08));
+                baseGrad.addColorStop(1, rgbToCss(rgb1[0] * 0.85, rgb1[1] * 0.85, rgb1[2] * 0.85));
+                x.fillStyle = baseGrad; x.fillRect(0, 0, s, s);
+
+                // Manchas grandes de "continentes"/tono (más orgánicas, varios tamaños)
+                for (let i = 0; i < 70; i++) {
+                    x.globalAlpha = 0.18 + Math.random() * 0.22;
+                    x.fillStyle = rgbToCss(...rgb2);
+                    const px = Math.random() * s, py = Math.random() * s, r = 30 + Math.random() * 90;
+                    x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill();
+                }
+                x.globalAlpha = 1;
+
+                // Cráteres con sombreado (borde oscuro + highlight claro, simulan relieve)
+                for (let i = 0; i < 1100; i++) {
+                    const px = Math.random() * s, py = Math.random() * s, r = 1.5 + Math.random() * 11;
+                    // Sombra del cráter (lado inferior-derecho)
+                    x.globalAlpha = 0.35;
+                    x.fillStyle = 'rgba(0,0,0,1)';
+                    x.beginPath(); x.arc(px + r * 0.25, py + r * 0.25, r, 0, Math.PI * 2); x.fill();
+                    // Cuerpo del cráter
+                    x.globalAlpha = 0.30;
+                    x.fillStyle = rgbToCss(...rgb2);
+                    x.beginPath(); x.arc(px, py, r * 0.85, 0, Math.PI * 2); x.fill();
+                    // Highlight (lado superior-izquierdo, simula luz rasante)
+                    x.globalAlpha = 0.22;
+                    x.fillStyle = 'rgba(255,255,255,1)';
+                    x.beginPath(); x.arc(px - r * 0.3, py - r * 0.3, r * 0.45, 0, Math.PI * 2); x.fill();
+                }
+                x.globalAlpha = 1;
+
+                // Grano fino general (textura de polvo/regolito)
+                for (let i = 0; i < 4000; i++) {
+                    x.globalAlpha = 0.03 + Math.random() * 0.05;
+                    x.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,1)' : 'rgba(255,255,255,1)';
+                    x.fillRect(Math.random() * s, Math.random() * s, 1, 1);
+                }
+                x.globalAlpha = 1;
+            }
+            const tex = new THREE.CanvasTexture(c);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
         }
 
         // ── ESTRELLAS DE FONDO
@@ -938,26 +1020,26 @@
         const starTwinkleMat = new THREE.ShaderMaterial({
             uniforms: { u_time: { value: 0.0 } },
             vertexShader: `
-                    attribute float twinkle;
-                    attribute float phase;
-                    attribute float speed;
-                    uniform float u_time;
-                    varying float vAlpha;
-                    void main(){
-                        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-                        gl_Position = projectionMatrix * mv;
-                        float base = 0.8;
-                        float flicker = 0.5 + 0.5 * sin(u_time * speed + phase);
-                        vAlpha = mix(base, base * (0.25 + 0.75 * flicker), twinkle);
-                        gl_PointSize = 1.0 * (300.0 / -mv.z);
-                    }
-                `,
+                        attribute float twinkle;
+                        attribute float phase;
+                        attribute float speed;
+                        uniform float u_time;
+                        varying float vAlpha;
+                        void main(){
+                            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                            gl_Position = projectionMatrix * mv;
+                            float base = 0.8;
+                            float flicker = 0.5 + 0.5 * sin(u_time * speed + phase);
+                            vAlpha = mix(base, base * (0.25 + 0.75 * flicker), twinkle);
+                            gl_PointSize = 1.0 * (300.0 / -mv.z);
+                        }
+                    `,
             fragmentShader: `
-                    varying float vAlpha;
-                    void main(){
-                        gl_FragColor = vec4(1.0, 1.0, 1.0, vAlpha);
-                    }
-                `,
+                        varying float vAlpha;
+                        void main(){
+                            gl_FragColor = vec4(1.0, 1.0, 1.0, vAlpha);
+                        }
+                    `,
             transparent: true,
             depthWrite: false,
         });
@@ -971,93 +1053,93 @@
         // se vea como turbulencia de fuego real fluyendo por toda la bola,
         // igual de vivo desde cualquier ángulo de cámara.
         const sunSurfaceVert = `
-                varying vec3 vPos;
-                varying vec3 vNormal;
-                void main(){
-                    vPos = position;
-                    vNormal = normal;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `;
-        const sunSurfaceFrag = `
-                uniform float u_time;
-                uniform vec3 u_colHot;
-                uniform vec3 u_colWarm;
-                uniform vec3 u_colCool;
-                varying vec3 vPos;
-                varying vec3 vNormal;
-
-                // Ruido simplex 3D (Ashima Arts / Stefan Gustavson, dominio público)
-                vec4 permute(vec4 x){ return mod(((x*34.0)+1.0)*x, 289.0); }
-                vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
-                float snoise(vec3 v){
-                    const vec2 C = vec2(1.0/6.0, 1.0/3.0);
-                    const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-                    vec3 i  = floor(v + dot(v, C.yyy));
-                    vec3 x0 = v - i + dot(i, C.xxx);
-                    vec3 g = step(x0.yzx, x0.xyz);
-                    vec3 l = 1.0 - g;
-                    vec3 i1 = min(g.xyz, l.zxy);
-                    vec3 i2 = max(g.xyz, l.zxy);
-                    vec3 x1 = x0 - i1 + C.xxx;
-                    vec3 x2 = x0 - i2 + C.yyy;
-                    vec3 x3 = x0 - D.yyy;
-                    i = mod(i, 289.0);
-                    vec4 p = permute(permute(permute(
-                        i.z + vec4(0.0, i1.z, i2.z, 1.0))
-                      + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-                      + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-                    float n_ = 0.142857142857;
-                    vec3 ns = n_ * D.wyz - D.xzx;
-                    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-                    vec4 x_ = floor(j * ns.z);
-                    vec4 y_ = floor(j - 7.0 * x_);
-                    vec4 x = x_ *ns.x + ns.yyyy;
-                    vec4 y = y_ *ns.x + ns.yyyy;
-                    vec4 h = 1.0 - abs(x) - abs(y);
-                    vec4 b0 = vec4(x.xy, y.xy);
-                    vec4 b1 = vec4(x.zw, y.zw);
-                    vec4 s0 = floor(b0)*2.0 + 1.0;
-                    vec4 s1 = floor(b1)*2.0 + 1.0;
-                    vec4 sh = -step(h, vec4(0.0));
-                    vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
-                    vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-                    vec3 p0 = vec3(a0.xy, h.x);
-                    vec3 p1 = vec3(a0.zw, h.y);
-                    vec3 p2 = vec3(a1.xy, h.z);
-                    vec3 p3 = vec3(a1.zw, h.w);
-                    vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
-                    p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-                    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-                    m = m * m;
-                    return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-                }
-                float fbm(vec3 p){
-                    float total = 0.0, amp = 0.5;
-                    for (int i = 0; i < 4; i++) {
-                        total += snoise(p) * amp;
-                        p *= 2.05;
-                        amp *= 0.55;
+                    varying vec3 vPos;
+                    varying vec3 vNormal;
+                    void main(){
+                        vPos = position;
+                        vNormal = normal;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                     }
-                    return total;
-                }
-                void main(){
-                    // Coordenada estable sobre la esfera (radio 1), animada en el tiempo
-                    // para que el plasma fluya y burbujee constantemente, igual de
-                    // brillante en cualquier punto de la esfera (sin depender del
-                    // ángulo de cámara, para que no se vea una mitad apagada).
-                    vec3 p = normalize(vPos) * 3.0;
-                    float n1 = fbm(p + vec3(0.0, 0.0, u_time * 0.25));
-                    float n2 = fbm(p * 1.8 + vec3(u_time * 0.18, -u_time * 0.12, 5.0));
-                    float plasma = (n1 * 0.65 + n2 * 0.35);
-                    plasma = plasma * 0.5 + 0.5; // 0..1
+                `;
+        const sunSurfaceFrag = `
+                    uniform float u_time;
+                    uniform vec3 u_colHot;
+                    uniform vec3 u_colWarm;
+                    uniform vec3 u_colCool;
+                    varying vec3 vPos;
+                    varying vec3 vNormal;
 
-                    vec3 col = mix(u_colCool, u_colWarm, smoothstep(0.25, 0.65, plasma));
-                    col = mix(col, u_colHot, smoothstep(0.6, 0.95, plasma));
+                    // Ruido simplex 3D (Ashima Arts / Stefan Gustavson, dominio público)
+                    vec4 permute(vec4 x){ return mod(((x*34.0)+1.0)*x, 289.0); }
+                    vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
+                    float snoise(vec3 v){
+                        const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+                        const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+                        vec3 i  = floor(v + dot(v, C.yyy));
+                        vec3 x0 = v - i + dot(i, C.xxx);
+                        vec3 g = step(x0.yzx, x0.xyz);
+                        vec3 l = 1.0 - g;
+                        vec3 i1 = min(g.xyz, l.zxy);
+                        vec3 i2 = max(g.xyz, l.zxy);
+                        vec3 x1 = x0 - i1 + C.xxx;
+                        vec3 x2 = x0 - i2 + C.yyy;
+                        vec3 x3 = x0 - D.yyy;
+                        i = mod(i, 289.0);
+                        vec4 p = permute(permute(permute(
+                            i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                          + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                          + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+                        float n_ = 0.142857142857;
+                        vec3 ns = n_ * D.wyz - D.xzx;
+                        vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                        vec4 x_ = floor(j * ns.z);
+                        vec4 y_ = floor(j - 7.0 * x_);
+                        vec4 x = x_ *ns.x + ns.yyyy;
+                        vec4 y = y_ *ns.x + ns.yyyy;
+                        vec4 h = 1.0 - abs(x) - abs(y);
+                        vec4 b0 = vec4(x.xy, y.xy);
+                        vec4 b1 = vec4(x.zw, y.zw);
+                        vec4 s0 = floor(b0)*2.0 + 1.0;
+                        vec4 s1 = floor(b1)*2.0 + 1.0;
+                        vec4 sh = -step(h, vec4(0.0));
+                        vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+                        vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+                        vec3 p0 = vec3(a0.xy, h.x);
+                        vec3 p1 = vec3(a0.zw, h.y);
+                        vec3 p2 = vec3(a1.xy, h.z);
+                        vec3 p3 = vec3(a1.zw, h.w);
+                        vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+                        p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+                        vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                        m = m * m;
+                        return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+                    }
+                    float fbm(vec3 p){
+                        float total = 0.0, amp = 0.5;
+                        for (int i = 0; i < 4; i++) {
+                            total += snoise(p) * amp;
+                            p *= 2.05;
+                            amp *= 0.55;
+                        }
+                        return total;
+                    }
+                    void main(){
+                        // Coordenada estable sobre la esfera (radio 1), animada en el tiempo
+                        // para que el plasma fluya y burbujee constantemente, igual de
+                        // brillante en cualquier punto de la esfera (sin depender del
+                        // ángulo de cámara, para que no se vea una mitad apagada).
+                        vec3 p = normalize(vPos) * 3.0;
+                        float n1 = fbm(p + vec3(0.0, 0.0, u_time * 0.25));
+                        float n2 = fbm(p * 1.8 + vec3(u_time * 0.18, -u_time * 0.12, 5.0));
+                        float plasma = (n1 * 0.65 + n2 * 0.35);
+                        plasma = plasma * 0.5 + 0.5; // 0..1
 
-                    gl_FragColor = vec4(col * 1.15, 1.0);
-                }
-            `;
+                        vec3 col = mix(u_colCool, u_colWarm, smoothstep(0.25, 0.65, plasma));
+                        col = mix(col, u_colHot, smoothstep(0.6, 0.95, plasma));
+
+                        gl_FragColor = vec4(col * 1.15, 1.0);
+                    }
+                `;
         const sunPaleta = { hot: [1.0, 0.98, 0.85], warm: [1.0, 0.55, 0.05], cool: [0.55, 0.12, 0.0] };
         const sunSurfaceMat = new THREE.ShaderMaterial({
             vertexShader: sunSurfaceVert,
@@ -1087,13 +1169,71 @@
         const sunGlowNucleo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
         sunGlowNucleo.scale.set(280, 280, 1); sun.add(sunGlowNucleo);
 
+        // Geometría compartida de "roca" para cinturones de meteoritos (Poleth y Saturno)
+        const rocaGeo = new THREE.IcosahedronGeometry(1, 0);
+
         // ── PLANETA POLETH ────────────────────────────────────────────────────────
         const centerGroup = new THREE.Group();
         centerGroup.position.set(100, 20, 100); scene.add(centerGroup);
-        const pMat = new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta('#ff99cc', '#ff66aa', 'craters'), roughness: 0.6, metalness: 0.1, emissive: 0x330011 });
-        centerGroup.add(new THREE.Mesh(new THREE.SphereGeometry(30, 64, 64), pMat));
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(45, 1.5, 32, 100), new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.3, metalness: 0.6 }));
+        const pMat = new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta('#ff99cc', '#ff66aa', 'craters'), roughness: 0.6, metalness: 0.1, emissive: 0x330011, emissiveIntensity: 0.5 });
+        const pMesh = new THREE.Mesh(new THREE.SphereGeometry(30, 64, 64), pMat);
+        centerGroup.add(pMesh);
+        crearGlowPlaneta(pMesh, 30, '#ff77b3', 0.22);
+
+        // Anillo realista (mismo sistema de textura con bandas/divisiones que Saturno)
+        // + cinturón de meteoritos orbitando, en vez de un toroide liso de un color.
+        const ringTexPoleth = crearTexturaAnilloSaturno();
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(40, 62, 128),
+            new THREE.MeshStandardMaterial({ map: ringTexPoleth, transparent: true, side: THREE.DoubleSide, roughness: 0.8, metalness: 0.15, color: 0xffe9b0 })
+        );
+        {
+            const posAttr = ring.geometry.attributes.position;
+            const uvAttr = ring.geometry.attributes.uv;
+            for (let i = 0; i < posAttr.count; i++) {
+                const vx = posAttr.getX(i), vy = posAttr.getY(i);
+                const dist = Math.sqrt(vx * vx + vy * vy);
+                const t = (dist - 40) / (62 - 40);
+                uvAttr.setXY(i, t, 0.5);
+            }
+            uvAttr.needsUpdate = true;
+        }
         ring.rotation.x = Math.PI / 2; centerGroup.add(ring);
+
+        const cinturonRocasPoleth = [];
+        const N_ROCAS_POLETH = 170;
+        for (let i = 0; i < N_ROCAS_POLETH; i++) {
+            const radio = 41 + Math.random() * 20;
+            const angInicial = Math.random() * Math.PI * 2;
+            const inclinacion = (Math.random() - 0.5) * 0.10;
+            const tam = 0.5 + Math.random() * 1.4;
+            const tonoGris = 0.55 + Math.random() * 0.3;
+            const mat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(tonoGris * 0.9, tonoGris * 0.75, tonoGris * 0.6),
+                roughness: 0.95, metalness: 0.05
+            });
+            const roca = new THREE.Mesh(rocaGeo, mat);
+            roca.scale.setScalar(tam);
+            roca.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
+            centerGroup.add(roca);
+            cinturonRocasPoleth.push({
+                mesh: roca, radio, ang: angInicial, inclinacion,
+                velOrbita: 0.0025 + Math.random() * 0.004,
+                velSpin: (Math.random() - 0.5) * 0.05
+            });
+        }
+        function actualizarCinturonRocasPoleth() {
+            cinturonRocasPoleth.forEach(r => {
+                r.ang += r.velOrbita;
+                r.mesh.position.set(
+                    Math.cos(r.ang) * r.radio,
+                    Math.sin(r.ang) * r.radio * r.inclinacion,
+                    Math.sin(r.ang) * r.radio
+                );
+                r.mesh.rotation.x += r.velSpin;
+                r.mesh.rotation.y += r.velSpin * 0.7;
+            });
+        }
 
         // ── CARTEL ────────────────────────────────────────────────────────────────
         const cv = document.createElement('canvas'); cv.width = 1400; cv.height = 900;
@@ -1127,18 +1267,279 @@
             if (catMaterials.length > 0) { const cg = new THREE.Sprite(catMaterials[0]); cg.scale.set(40, 40, 1); cg.position.set(-25, 30, 5); centerGroup.add(cg); }
         }
 
+        // ── TEXTURA TIERRA REALISTA (océanos + continentes + nubes separadas) ──────
+        function crearTexturaTierra() {
+            const s = 1024, c = document.createElement('canvas'); c.width = s; c.height = s;
+            const x = c.getContext('2d');
+
+            // Océano base: degradado azul profundo a azul más claro en el ecuador
+            const oceano = x.createLinearGradient(0, 0, 0, s);
+            oceano.addColorStop(0, '#0a2a5c');
+            oceano.addColorStop(0.5, '#1565c0');
+            oceano.addColorStop(1, '#0a2a5c');
+            x.fillStyle = oceano; x.fillRect(0, 0, s, s);
+
+            // Proyección equirectangular simple: lon -180..180 -> x 0..s, lat 90..-90 -> y 0..s
+            function ll(lon, lat) { return [(lon + 180) / 360 * s, (90 - lat) / 180 * s]; }
+            function dibujarContinente(puntos, tono) {
+                x.beginPath();
+                puntos.forEach(([lon, lat], i) => {
+                    const [px, py] = ll(lon, lat);
+                    if (i === 0) x.moveTo(px, py); else x.lineTo(px, py);
+                });
+                x.closePath();
+                x.fillStyle = tono; x.fill();
+            }
+            const verdeBosque = '#356b35', verdeClaro = '#5a9450', sabana = '#9c8a4a', desierto = '#c9a35e', tundra = '#7a8a6a';
+
+            // Norteamérica (silueta simplificada pero reconocible)
+            dibujarContinente([
+                [-165, 68], [-150, 70], [-130, 70], [-95, 68], [-80, 62], [-65, 50],
+                [-55, 47], [-60, 45], [-75, 35], [-80, 26], [-97, 26], [-105, 22],
+                [-115, 30], [-124, 40], [-124, 49], [-130, 55], [-140, 60], [-165, 68]
+            ], verdeBosque);
+            dibujarContinente([[-112, 35], [-100, 32], [-95, 30], [-105, 25], [-112, 30]], desierto);
+
+            // Sudamérica
+            dibujarContinente([
+                [-79, 9], [-75, 1], [-70, -5], [-70, -18], [-72, -30], [-70, -40],
+                [-68, -52], [-65, -55], [-58, -52], [-57, -38], [-48, -25], [-39, -15],
+                [-35, -8], [-50, 0], [-60, 6], [-71, 11], [-79, 9]
+            ], verdeClaro);
+            dibujarContinente([[-65, -18], [-58, -20], [-60, -28], [-66, -25]], sabana);
+
+            // África
+            dibujarContinente([
+                [-17, 21], [-5, 35], [10, 37], [20, 33], [32, 31], [35, 27],
+                [43, 12], [51, 12], [45, 2], [40, -5], [35, -20], [32, -28],
+                [27, -34], [18, -34], [12, -18], [9, -5], [-10, 5], [-17, 14], [-17, 21]
+            ], sabana);
+            dibujarContinente([[5, 20], [20, 22], [25, 18], [10, 15], [3, 17]], desierto);
+            dibujarContinente([[15, 0], [28, 2], [25, -8], [15, -6]], verdeBosque);
+
+            // Europa
+            dibujarContinente([
+                [-9, 43], [-9, 36], [3, 38], [12, 38], [18, 40], [22, 40],
+                [28, 45], [30, 50], [25, 55], [15, 58], [10, 58], [5, 52],
+                [-2, 50], [-5, 48], [-9, 43]
+            ], verdeBosque);
+
+            // Asia (gran masa, simplificada)
+            dibujarContinente([
+                [28, 45], [40, 42], [55, 40], [70, 38], [78, 35], [80, 28],
+                [88, 28], [98, 28], [105, 22], [110, 20], [108, 10], [100, 5],
+                [97, 12], [92, 22], [88, 26], [80, 18], [73, 8], [78, 22],
+                [60, 28], [50, 25], [48, 30], [35, 38], [28, 45]
+            ], verdeBosque);
+            dibujarContinente([[55, 50], [90, 55], [130, 60], [150, 65], [160, 68],
+            [140, 70], [110, 72], [80, 70], [60, 60], [55, 50]], tundra);
+            dibujarContinente([[60, 38], [75, 40], [85, 35], [70, 30], [58, 32]], desierto);
+            // Sudeste asiático / China costera
+            dibujarContinente([[105, 22], [122, 30], [125, 38], [115, 40], [108, 32], [105, 22]], verdeClaro);
+
+            // Australia
+            dibujarContinente([
+                [113, -22], [122, -18], [130, -12], [137, -12], [142, -11],
+                [145, -17], [153, -28], [150, -37], [140, -38], [135, -35],
+                [129, -32], [115, -35], [113, -26], [113, -22]
+            ], sabana);
+            dibujarContinente([[122, -25], [135, -25], [133, -20], [124, -22]], desierto);
+
+            // Groenlandia
+            dibujarContinente([[-55, 60], [-42, 60], [-22, 70], [-30, 82], [-50, 78], [-55, 65]], tundra);
+
+            // Casquetes polares blancos arriba y abajo
+            const polo1 = x.createLinearGradient(0, 0, 0, s * 0.07);
+            polo1.addColorStop(0, 'rgba(255,255,255,0.92)'); polo1.addColorStop(1, 'rgba(255,255,255,0)');
+            x.fillStyle = polo1; x.fillRect(0, 0, s, s * 0.07);
+            const polo2 = x.createLinearGradient(0, s * 0.93, 0, s);
+            polo2.addColorStop(0, 'rgba(255,255,255,0)'); polo2.addColorStop(1, 'rgba(255,255,255,0.92)');
+            x.fillStyle = polo2; x.fillRect(0, s * 0.93, s, s * 0.07);
+
+            // Textura fina de variación oceánica (corrientes) y vegetación
+            for (let i = 0; i < 300; i++) {
+                x.globalAlpha = 0.04 + Math.random() * 0.06;
+                x.fillStyle = Math.random() < 0.5 ? '#ffffff' : '#003366';
+                const px = Math.random() * s, py = Math.random() * s;
+                x.fillRect(px, py, 15 + Math.random() * 40, 1.5);
+            }
+            x.globalAlpha = 1;
+
+            const tex = new THREE.CanvasTexture(c);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
+        }
+
+        // Capa de nubes: textura separada con alpha (transparente donde no hay nube)
+        function crearTexturaNubes() {
+            const s = 1024, c = document.createElement('canvas'); c.width = s; c.height = s;
+            const x = c.getContext('2d'); x.clearRect(0, 0, s, s);
+            for (let i = 0; i < 90; i++) {
+                const cx = Math.random() * s, cy = Math.random() * s;
+                const rw = 30 + Math.random() * 90, rh = rw * (0.35 + Math.random() * 0.4);
+                const grad = x.createRadialGradient(cx, cy, 0, cx, cy, rw);
+                const op = 0.25 + Math.random() * 0.35;
+                grad.addColorStop(0, `rgba(255,255,255,${op})`);
+                grad.addColorStop(1, 'rgba(255,255,255,0)');
+                x.save(); x.translate(cx, cy); x.rotate(Math.random() * Math.PI);
+                x.scale(1, rh / rw); x.fillStyle = grad;
+                x.beginPath(); x.arc(0, 0, rw, 0, Math.PI * 2); x.fill(); x.restore();
+            }
+            const tex = new THREE.CanvasTexture(c);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
+        }
+
         // ── PLANETAS ──────────────────────────────────────────────────────────────
+        // Pequeño glow propio (sprite con degradado) para que cada planeta
+        // destaque un poco entre tanta nebulosa/estrella, aunque esté lejos
+        // del sunLight. No es una luz real (no afecta a otros objetos), solo
+        // un halo visual pegado al planeta mismo.
+        function crearGlowPlaneta(mesh, radio, colorHex, intensidad = 0.30) {
+            const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+            const x = c.getContext('2d');
+            const col = new THREE.Color(colorHex);
+            const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
+            const grad = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+            grad.addColorStop(0, `rgba(${r},${g},${b},${intensidad})`);
+            grad.addColorStop(0.5, `rgba(${r},${g},${b},${intensidad * 0.3})`);
+            grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+            x.fillStyle = grad; x.fillRect(0, 0, 128, 128);
+            const tex = new THREE.CanvasTexture(c);
+            const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+            }));
+            glow.scale.set(radio * 4.2, radio * 4.2, 1);
+            mesh.add(glow);
+            return glow;
+        }
+
         const solarSystem = new THREE.Group(); scene.add(solarSystem);
         function addP(d, sz, c1, c2, t) {
-            const o = new THREE.Group(), m = new THREE.Mesh(new THREE.SphereGeometry(sz, 64, 64), new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta(c1, c2, t), roughness: 0.7, metalness: 0.0 }));
+            const o = new THREE.Group(), m = new THREE.Mesh(new THREE.SphereGeometry(sz, 64, 64), new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta(c1, c2, t), roughness: 0.8, metalness: 0.0, emissive: new THREE.Color(c2).multiplyScalar(0.06) }));
             m.position.x = d; o.add(m); o.userData = { s: 0.001 + Math.random() * 0.004 }; solarSystem.add(o);
+            crearGlowPlaneta(m, sz, c2, 0.25);
+            return { orbita: o, mesh: m };
         }
-        addP(180, 12, '#113399', '#4477ff', 'craters'); addP(280, 10, '#aa2200', '#dd5522', 'craters'); addP(450, 35, '#d9a050', '#f0c080', 'gas');
+        // Mercurio: gris rocoso real (no azul intenso) — más oscuro y craterizado
+        addP(180, 12, '#7a7872', '#5e5c57', 'craters');
+        // Marte: óxido rojizo natural, menos saturado que un naranja brillante
+        addP(280, 10, '#9c5a3c', '#b97250', 'craters');
+
+        // ── TIERRA REALISTA ───────────────────────────────────────────────────────
+        // Continentes/océanos en la esfera principal + una segunda esfera ligeramente
+        // más grande con la capa de nubes (textura con alpha), rotando a su propia
+        // velocidad para que el efecto de movimiento atmosférico se vea real.
+        const earthOrbit = new THREE.Group();
+        const earthMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(28, 64, 64),
+            new THREE.MeshStandardMaterial({ map: crearTexturaTierra(), roughness: 0.75, metalness: 0.0, emissive: 0x0a1a33, emissiveIntensity: 0.08 })
+        );
+        earthMesh.position.x = 450;
+        earthOrbit.add(earthMesh);
+        const cloudsMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(28.6, 64, 64),
+            new THREE.MeshStandardMaterial({ map: crearTexturaNubes(), transparent: true, depthWrite: false, roughness: 1.0 })
+        );
+        earthMesh.add(cloudsMesh);
+        earthOrbit.userData = { s: 0.001 + Math.random() * 0.004 };
+        solarSystem.add(earthOrbit);
+        crearGlowPlaneta(earthMesh, 28, '#5fa8ff', 0.22);
+
+        // ── SATURNO: anillo con bandas realistas + cinturón de rocas orbitando ────
         const sat = new THREE.Group();
-        const sm = new THREE.Mesh(new THREE.SphereGeometry(30, 64, 64), new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta('#dcdcaa', '#aaaa66', 'gas'), roughness: 0.6 }));
+        // Saturno real: tono crema-dorado pálido, no oliva oscuro
+        const sm = new THREE.Mesh(new THREE.SphereGeometry(30, 64, 64), new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta('#e8d9a8', '#c9b27e', 'gas'), roughness: 0.65, emissive: new THREE.Color(0xc9b27e).multiplyScalar(0.05) }));
         sm.position.x = 650; sat.add(sm);
-        const sr = new THREE.Mesh(new THREE.TorusGeometry(45, 8, 2, 100), new THREE.MeshStandardMaterial({ color: 0xc0a070, roughness: 0.5 }));
-        sr.rotation.x = Math.PI / 2.2; sm.add(sr); sat.userData = { s: 0.001 }; solarSystem.add(sat);
+        crearGlowPlaneta(sm, 30, '#ecdfb0', 0.22);
+
+        // Textura del anillo: bandas concéntricas con distinta densidad/brillo y
+        // huecos (divisiones), como los anillos reales — no un color plano.
+        function crearTexturaAnilloSaturno() {
+            const s = 512, c = document.createElement('canvas'); c.width = s; c.height = 1;
+            const x = c.getContext('2d');
+            // Generamos por columnas (cada columna = un radio del anillo)
+            for (let i = 0; i < s; i++) {
+                const t = i / s; // 0 = borde interior, 1 = borde exterior
+                // Patrón de bandas con ruido + un par de "huecos" (divisiones)
+                let brillo = 0.35 + 0.4 * Math.sin(t * 40.0) * Math.sin(t * 13.0 + 1.3);
+                brillo += (Math.random() - 0.5) * 0.12;
+                // Divisiones oscuras (como la división de Cassini)
+                const div1 = Math.exp(-Math.pow((t - 0.42) * 60, 2));
+                const div2 = Math.exp(-Math.pow((t - 0.68) * 90, 2));
+                brillo *= (1.0 - div1 * 0.85) * (1.0 - div2 * 0.7);
+                // Bordes interior/exterior se desvanecen
+                const fadeIn = Math.min(1, t / 0.04);
+                const fadeOut = Math.min(1, (1 - t) / 0.04);
+                brillo = Math.max(0, Math.min(1, brillo)) * fadeIn * fadeOut;
+                const tono = 200 + brillo * 40; // crema-dorado
+                x.fillStyle = `rgba(${tono},${tono * 0.92},${tono * 0.72},${brillo})`;
+                x.fillRect(i, 0, 1, 1);
+            }
+            const tex = new THREE.CanvasTexture(c);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
+        }
+        const anilloTex = crearTexturaAnilloSaturno();
+        const sr = new THREE.Mesh(
+            new THREE.RingGeometry(40, 75, 128),
+            new THREE.MeshStandardMaterial({ map: anilloTex, transparent: true, side: THREE.DoubleSide, roughness: 0.8, metalness: 0.1 })
+        );
+        // RingGeometry usa UVs radiales raros por defecto; remapeamos para que la
+        // textura (que varía a lo largo de X) se proyecte del borde interior al exterior.
+        {
+            const posAttr = sr.geometry.attributes.position;
+            const uvAttr = sr.geometry.attributes.uv;
+            for (let i = 0; i < posAttr.count; i++) {
+                const vx = posAttr.getX(i), vy = posAttr.getY(i);
+                const dist = Math.sqrt(vx * vx + vy * vy);
+                const t = (dist - 40) / (75 - 40);
+                uvAttr.setXY(i, t, 0.5);
+            }
+            uvAttr.needsUpdate = true;
+        }
+        sr.rotation.x = Math.PI / 2.2; sm.add(sr);
+        sat.userData = { s: 0.001 }; solarSystem.add(sat);
+
+        // Cinturón de rocas/meteoritos orbitando alrededor de Saturno, además del
+        // anillo plano — partículas individuales en 3D (no un disco uniforme),
+        // cada una con su propia inclinación leve, tamaño y velocidad de giro.
+        const cinturonRocas = [];
+        const N_ROCAS = 260;
+        for (let i = 0; i < N_ROCAS; i++) {
+            const radio = 42 + Math.random() * 36; // dentro del rango del anillo
+            const angInicial = Math.random() * Math.PI * 2;
+            const inclinacion = (Math.random() - 0.5) * 0.12; // leve variación fuera del plano
+            const tam = 0.6 + Math.random() * 1.8;
+            const tonoGris = 0.55 + Math.random() * 0.3;
+            const mat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(tonoGris * 0.85, tonoGris * 0.78, tonoGris * 0.62),
+                roughness: 0.95, metalness: 0.05
+            });
+            const roca = new THREE.Mesh(rocaGeo, mat);
+            roca.scale.setScalar(tam);
+            roca.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
+            sm.add(roca);
+            cinturonRocas.push({
+                mesh: roca, radio, ang: angInicial, inclinacion,
+                velOrbita: 0.002 + Math.random() * 0.004,
+                velSpin: (Math.random() - 0.5) * 0.05
+            });
+        }
+        function actualizarCinturonRocas() {
+            cinturonRocas.forEach(r => {
+                r.ang += r.velOrbita;
+                r.mesh.position.set(
+                    Math.cos(r.ang) * r.radio,
+                    Math.sin(r.ang) * r.radio * r.inclinacion,
+                    Math.sin(r.ang) * r.radio
+                );
+                r.mesh.rotation.x += r.velSpin;
+                r.mesh.rotation.y += r.velSpin * 0.7;
+            });
+        }
+
+
 
         // ── NEBULOSAS REALISTAS ───────────────────────────────────────────────────
         function crearTexturaNebulosaCielo(r, g, b) {
@@ -1205,53 +1606,53 @@
         // Cada nebulosa = grupo de 5 planos apilados con offsets, rotaciones y
         // semillas distintas → al orbitar la cámara se ve profundidad real.
         const nebulaGLSLVert = `
-                varying vec2 vUv;
-                void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
-            `;
+                    varying vec2 vUv;
+                    void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
+                `;
         const nebulaGLSLFrag = `
-                uniform float u_time;
-                uniform float u_speed;
-                uniform float u_seed;
-                uniform float u_layerOpacity;
-                uniform vec3  u_colOuter;
-                uniform vec3  u_colMid;
-                uniform vec3  u_colCore;
-                uniform vec3  u_colCenter;
-                varying vec2 vUv;
+                    uniform float u_time;
+                    uniform float u_speed;
+                    uniform float u_seed;
+                    uniform float u_layerOpacity;
+                    uniform vec3  u_colOuter;
+                    uniform vec3  u_colMid;
+                    uniform vec3  u_colCore;
+                    uniform vec3  u_colCenter;
+                    varying vec2 vUv;
 
-                float noise(vec3 x){
-                    vec3 p=floor(x); vec3 f=fract(x); f=f*f*(3.0-2.0*f);
-                    float n=p.x+p.y*57.0+113.0*p.z;
-                    return mix(mix(mix(fract(sin(n)*43758.5453),fract(sin(n+1.0)*43758.5453),f.x),
-                                   mix(fract(sin(n+57.0)*43758.5453),fract(sin(n+58.0)*43758.5453),f.x),f.y),
-                               mix(mix(fract(sin(n+113.0)*43758.5453),fract(sin(n+114.0)*43758.5453),f.x),
-                                   mix(fract(sin(n+170.0)*43758.5453),fract(sin(n+171.0)*43758.5453),f.x),f.y),f.z);
-                }
-                float fbm(vec3 x){
-                    float v=0.0,a=0.5; vec3 s=vec3(100.0);
-                    for(int i=0;i<5;++i){v+=a*noise(x);x=x*2.0+s;a*=0.5;} return v;
-                }
-                mat2 rot(float a){float s=sin(a),c=cos(a);return mat2(c,-s,s,c);}
+                    float noise(vec3 x){
+                        vec3 p=floor(x); vec3 f=fract(x); f=f*f*(3.0-2.0*f);
+                        float n=p.x+p.y*57.0+113.0*p.z;
+                        return mix(mix(mix(fract(sin(n)*43758.5453),fract(sin(n+1.0)*43758.5453),f.x),
+                                       mix(fract(sin(n+57.0)*43758.5453),fract(sin(n+58.0)*43758.5453),f.x),f.y),
+                                   mix(mix(fract(sin(n+113.0)*43758.5453),fract(sin(n+114.0)*43758.5453),f.x),
+                                       mix(fract(sin(n+170.0)*43758.5453),fract(sin(n+171.0)*43758.5453),f.x),f.y),f.z);
+                    }
+                    float fbm(vec3 x){
+                        float v=0.0,a=0.5; vec3 s=vec3(100.0);
+                        for(int i=0;i<5;++i){v+=a*noise(x);x=x*2.0+s;a*=0.5;} return v;
+                    }
+                    mat2 rot(float a){float s=sin(a),c=cos(a);return mat2(c,-s,s,c);}
 
-                void main(){
-                    vec2 uv=(vUv-0.5)*2.0; uv*=1.8;
-                    vec2 d=uv*rot(0.785398+u_seed*0.5);
-                    float t=u_time*u_speed+u_seed*3.7;
-                    float dist=length(vec2(d.x*0.45,d.y*1.9));
-                    float mask=smoothstep(1.55,0.0,dist);
-                    vec3 p=vec3(d*2.0+u_seed*5.0,t);
-                    vec3 q=vec3(fbm(p),fbm(p+vec3(1.7+u_seed)),0.0);
-                    vec3 r2=vec3(fbm(p+q*2.0+t),fbm(p+q*2.0-t),0.0);
-                    float den=fbm(p+r2*2.5);
-                    den=smoothstep(0.05,0.88,den*mask*1.35);
-                    den=pow(den,2.0);
-                    vec3 fc=mix(vec3(0.0), u_colOuter,  smoothstep(0.0,0.2,den));
-                    fc     =mix(fc,        u_colMid,    smoothstep(0.2,0.5,den));
-                    fc     =mix(fc,        u_colCore,   smoothstep(0.5,0.8,den));
-                    fc     =mix(fc,        u_colCenter, smoothstep(0.8,1.0,den)*mask);
-                    gl_FragColor=vec4(fc, den*u_layerOpacity);
-                }
-            `;
+                    void main(){
+                        vec2 uv=(vUv-0.5)*2.0; uv*=1.8;
+                        vec2 d=uv*rot(0.785398+u_seed*0.5);
+                        float t=u_time*u_speed+u_seed*3.7;
+                        float dist=length(vec2(d.x*0.45,d.y*1.9));
+                        float mask=smoothstep(1.55,0.0,dist);
+                        vec3 p=vec3(d*2.0+u_seed*5.0,t);
+                        vec3 q=vec3(fbm(p),fbm(p+vec3(1.7+u_seed)),0.0);
+                        vec3 r2=vec3(fbm(p+q*2.0+t),fbm(p+q*2.0-t),0.0);
+                        float den=fbm(p+r2*2.5);
+                        den=smoothstep(0.05,0.88,den*mask*1.35);
+                        den=pow(den,2.0);
+                        vec3 fc=mix(vec3(0.0), u_colOuter,  smoothstep(0.0,0.2,den));
+                        fc     =mix(fc,        u_colMid,    smoothstep(0.2,0.5,den));
+                        fc     =mix(fc,        u_colCore,   smoothstep(0.5,0.8,den));
+                        fc     =mix(fc,        u_colCenter, smoothstep(0.8,1.0,den)*mask);
+                        gl_FragColor=vec4(fc, den*u_layerOpacity);
+                    }
+                `;
 
         // Función que crea una nebulosa volumétrica como grupo de capas
         function crearNebulaVolumen(cx, cy, cz, baseSize, speed, rxBase, ryBase, paleta) {
@@ -1513,122 +1914,122 @@
         // Máscara matemática: cabeza (círculo) + 2 orejas (triángulos) + bigotes (líneas)
         // La nebulosa GLSL solo brilla donde la silueta de gato lo permite.
         const catNebulaVert = `
-                varying vec2 vUv;
-                void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
-            `;
+                    varying vec2 vUv;
+                    void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
+                `;
         const catNebulaFrag = `
-                uniform float u_time;
-                varying vec2 vUv;
+                    uniform float u_time;
+                    varying vec2 vUv;
 
-                // ── ruido y fbm ────────────────────────────────────────────────────────
-                float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
-                float noise(vec3 x){
-                    vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
-                    return mix(mix(mix(hash(i),            hash(i+vec3(1,0,0)),f.x),
-                                   mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
-                               mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
-                                   mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
-                }
-                float fbm(vec3 p){
-                    float v=0.0,a=0.5;
-                    for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.1+vec3(5.2,1.3,3.7);a*=0.5;}
-                    return v;
-                }
+                    // ── ruido y fbm ────────────────────────────────────────────────────────
+                    float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+                    float noise(vec3 x){
+                        vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
+                        return mix(mix(mix(hash(i),            hash(i+vec3(1,0,0)),f.x),
+                                       mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+                                   mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
+                                       mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
+                    }
+                    float fbm(vec3 p){
+                        float v=0.0,a=0.5;
+                        for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.1+vec3(5.2,1.3,3.7);a*=0.5;}
+                        return v;
+                    }
 
-                // ── SDF helpers ───────────────────────────────────────────────────────
-                float sdCircle(vec2 p, vec2 c, float r){ return length(p-c)-r; }
+                    // ── SDF helpers ───────────────────────────────────────────────────────
+                    float sdCircle(vec2 p, vec2 c, float r){ return length(p-c)-r; }
 
-                // triángulo orientable para orejas
-                float sdTriangle(vec2 p, vec2 a, vec2 b, vec2 c2){
-                    vec2 e0=b-a,e1=c2-b,e2=a-c2;
-                    vec2 v0=p-a, v1=p-b, v2=p-c2;
-                    vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
-                    vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
-                    vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
-                    float s=sign(e0.x*e2.y-e0.y*e2.x);
-                    vec2 d=min(min(vec2(dot(pq0,pq0),s*(v0.x*e0.y-v0.y*e0.x)),
-                                   vec2(dot(pq1,pq1),s*(v1.x*e1.y-v1.y*e1.x))),
-                                   vec2(dot(pq2,pq2),s*(v2.x*e2.y-v2.y*e2.x)));
-                    return -sqrt(d.x)*sign(d.y);
-                }
+                    // triángulo orientable para orejas
+                    float sdTriangle(vec2 p, vec2 a, vec2 b, vec2 c2){
+                        vec2 e0=b-a,e1=c2-b,e2=a-c2;
+                        vec2 v0=p-a, v1=p-b, v2=p-c2;
+                        vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
+                        vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
+                        vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
+                        float s=sign(e0.x*e2.y-e0.y*e2.x);
+                        vec2 d=min(min(vec2(dot(pq0,pq0),s*(v0.x*e0.y-v0.y*e0.x)),
+                                       vec2(dot(pq1,pq1),s*(v1.x*e1.y-v1.y*e1.x))),
+                                       vec2(dot(pq2,pq2),s*(v2.x*e2.y-v2.y*e2.x)));
+                        return -sqrt(d.x)*sign(d.y);
+                    }
 
-                // bigote: segmento engrosado
-                float sdCapsule(vec2 p, vec2 a, vec2 b, float r){
-                    vec2 pa=p-a, ba=b-a;
-                    float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
-                    return length(pa-ba*h)-r;
-                }
+                    // bigote: segmento engrosado
+                    float sdCapsule(vec2 p, vec2 a, vec2 b, float r){
+                        vec2 pa=p-a, ba=b-a;
+                        float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
+                        return length(pa-ba*h)-r;
+                    }
 
-                // ── Máscara silueta de gato ────────────────────────────────────────────
-                float catMask(vec2 p){
-                    // cabeza: círculo centrado en (0, -0.05), radio 0.38
-                    float head = sdCircle(p, vec2(0.0,-0.05), 0.38);
+                    // ── Máscara silueta de gato ────────────────────────────────────────────
+                    float catMask(vec2 p){
+                        // cabeza: círculo centrado en (0, -0.05), radio 0.38
+                        float head = sdCircle(p, vec2(0.0,-0.05), 0.38);
 
-                    // oreja izquierda: triángulo apuntando arriba-izquierda
-                    float earL = sdTriangle(p,
-                        vec2(-0.38, 0.18),   // base izq
-                        vec2(-0.12, 0.18),   // base der
-                        vec2(-0.30, 0.52)    // punta
-                    );
-                    // oreja derecha: simétrica
-                    float earR = sdTriangle(p,
-                        vec2( 0.12, 0.18),
-                        vec2( 0.38, 0.18),
-                        vec2( 0.30, 0.52)
-                    );
+                        // oreja izquierda: triángulo apuntando arriba-izquierda
+                        float earL = sdTriangle(p,
+                            vec2(-0.38, 0.18),   // base izq
+                            vec2(-0.12, 0.18),   // base der
+                            vec2(-0.30, 0.52)    // punta
+                        );
+                        // oreja derecha: simétrica
+                        float earR = sdTriangle(p,
+                            vec2( 0.12, 0.18),
+                            vec2( 0.38, 0.18),
+                            vec2( 0.30, 0.52)
+                        );
 
-                    // unión suave de cabeza + orejas
-                    float body = min(head, min(earL, earR));
+                        // unión suave de cabeza + orejas
+                        float body = min(head, min(earL, earR));
 
-                    // bigotes: 3 a cada lado, suavizados
-                    float r = 0.012; // grosor bigote
-                    float w1L = sdCapsule(p, vec2(-0.38,-0.05), vec2(-0.72,-0.02), r);
-                    float w2L = sdCapsule(p, vec2(-0.38,-0.10), vec2(-0.72,-0.14), r);
-                    float w3L = sdCapsule(p, vec2(-0.38,-0.00), vec2(-0.72, 0.06), r);
-                    float w1R = sdCapsule(p, vec2( 0.38,-0.05), vec2( 0.72,-0.02), r);
-                    float w2R = sdCapsule(p, vec2( 0.38,-0.10), vec2( 0.72,-0.14), r);
-                    float w3R = sdCapsule(p, vec2( 0.38,-0.00), vec2( 0.72, 0.06), r);
-                    float whiskers = min(min(min(w1L,w2L),min(w3L,w1R)),min(w2R,w3R));
+                        // bigotes: 3 a cada lado, suavizados
+                        float r = 0.012; // grosor bigote
+                        float w1L = sdCapsule(p, vec2(-0.38,-0.05), vec2(-0.72,-0.02), r);
+                        float w2L = sdCapsule(p, vec2(-0.38,-0.10), vec2(-0.72,-0.14), r);
+                        float w3L = sdCapsule(p, vec2(-0.38,-0.00), vec2(-0.72, 0.06), r);
+                        float w1R = sdCapsule(p, vec2( 0.38,-0.05), vec2( 0.72,-0.02), r);
+                        float w2R = sdCapsule(p, vec2( 0.38,-0.10), vec2( 0.72,-0.14), r);
+                        float w3R = sdCapsule(p, vec2( 0.38,-0.00), vec2( 0.72, 0.06), r);
+                        float whiskers = min(min(min(w1L,w2L),min(w3L,w1R)),min(w2R,w3R));
 
-                    // la máscara total: interior (SDF < 0) → 1, exterior → 0
-                    // bigotes más tenues que el cuerpo
-                    float bodyMask    = smoothstep( 0.04, -0.04, body);
-                    float whiskerMask = smoothstep( 0.008,-0.008, whiskers) * 0.55;
-                    return max(bodyMask, whiskerMask);
-                }
+                        // la máscara total: interior (SDF < 0) → 1, exterior → 0
+                        // bigotes más tenues que el cuerpo
+                        float bodyMask    = smoothstep( 0.04, -0.04, body);
+                        float whiskerMask = smoothstep( 0.008,-0.008, whiskers) * 0.55;
+                        return max(bodyMask, whiskerMask);
+                    }
 
-                void main(){
-                    vec2 uv = (vUv - 0.5) * 2.2;   // -1.1 … 1.1
+                    void main(){
+                        vec2 uv = (vUv - 0.5) * 2.2;   // -1.1 … 1.1
 
-                    float mask = catMask(uv);
-                    if(mask < 0.01) discard;         // fuera del gato → transparente
+                        float mask = catMask(uv);
+                        if(mask < 0.01) discard;         // fuera del gato → transparente
 
-                    // animación de nebulosa dentro de la silueta
-                    float t = u_time * 0.08;
-                    vec3 p  = vec3(uv * 2.5, t);
-                    vec3 q  = vec3(fbm(p), fbm(p + vec3(1.7,0.9,2.3)), 0.0);
-                    vec3 r2 = vec3(fbm(p + q*2.0 + t), fbm(p + q*1.8 - t), 0.0);
-                    float den = fbm(p + r2 * 2.5);
-                    den = smoothstep(0.15, 0.85, den);
-                    den = pow(den, 1.6) * mask;      // recortado por silueta
+                        // animación de nebulosa dentro de la silueta
+                        float t = u_time * 0.08;
+                        vec3 p  = vec3(uv * 2.5, t);
+                        vec3 q  = vec3(fbm(p), fbm(p + vec3(1.7,0.9,2.3)), 0.0);
+                        vec3 r2 = vec3(fbm(p + q*2.0 + t), fbm(p + q*1.8 - t), 0.0);
+                        float den = fbm(p + r2 * 2.5);
+                        den = smoothstep(0.15, 0.85, den);
+                        den = pow(den, 1.6) * mask;      // recortado por silueta
 
-                    // paleta: rosa-lila-violeta nacarado, como nebulosa de estrella
-                    vec3 cA = vec3(0.08, 0.02, 0.28);  // violeta oscuro
-                    vec3 cB = vec3(0.45, 0.05, 0.55);  // violeta medio
-                    vec3 cC = vec3(0.80, 0.30, 0.75);  // rosa-malva
-                    vec3 cD = vec3(0.95, 0.70, 0.90);  // blanco rosado
+                        // paleta: rosa-lila-violeta nacarado, como nebulosa de estrella
+                        vec3 cA = vec3(0.08, 0.02, 0.28);  // violeta oscuro
+                        vec3 cB = vec3(0.45, 0.05, 0.55);  // violeta medio
+                        vec3 cC = vec3(0.80, 0.30, 0.75);  // rosa-malva
+                        vec3 cD = vec3(0.95, 0.70, 0.90);  // blanco rosado
 
-                    vec3 col = mix(cA, cB, smoothstep(0.0, 0.35, den));
-                    col       = mix(col,cC, smoothstep(0.35,0.70, den));
-                    col       = mix(col,cD, smoothstep(0.70,1.00, den));
+                        vec3 col = mix(cA, cB, smoothstep(0.0, 0.35, den));
+                        col       = mix(col,cC, smoothstep(0.35,0.70, den));
+                        col       = mix(col,cD, smoothstep(0.70,1.00, den));
 
-                    // brillo suave en el núcleo de las orejas y el centro
-                    float glow = smoothstep(0.6,1.0,den) * mask * 0.4;
-                    col += vec3(0.3,0.1,0.4) * glow;
+                        // brillo suave en el núcleo de las orejas y el centro
+                        float glow = smoothstep(0.6,1.0,den) * mask * 0.4;
+                        col += vec3(0.3,0.1,0.4) * glow;
 
-                    gl_FragColor = vec4(col, den * 0.82);
-                }
-            `;
+                        gl_FragColor = vec4(col, den * 0.82);
+                    }
+                `;
 
         const catNebulaMat = new THREE.ShaderMaterial({
             vertexShader: catNebulaVert,
@@ -1713,49 +2114,49 @@
         // radial naranja/blanco) + halo de lente gravitacional (arco vertical que
         // simula la luz del disco curvándose por detrás, efecto tipo Interstellar).
         const bhDiscVert = `
-                varying vec2 vUv;
-                void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
-            `;
+                    varying vec2 vUv;
+                    void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
+                `;
         const bhDiscFrag = `
-                uniform float u_time;
-                uniform vec3 u_colHot;
-                uniform vec3 u_colWarm;
-                uniform vec3 u_colCool;
-                varying vec2 vUv;
-                void main(){
-                    vec2 c = vUv - 0.5;
-                    float r = length(c) * 2.0; // 0 centro -> 1 borde
-                    if (r > 1.0 || r < 0.34) discard; // anillo hueco (deja ver el horizonte)
-                    float ang = atan(c.y, c.x);
-                    // remolino: bandas que giran con el tiempo, más densas cerca del centro
-                    float swirl = sin(ang * 6.0 + u_time * 1.6 - r * 10.0) * 0.5 + 0.5;
-                    float band = sin(ang * 14.0 - u_time * 2.4 + r * 18.0) * 0.5 + 0.5;
-                    float bright = mix(swirl, band, 0.4);
-                    // más brillante y cálido cerca del horizonte interior, se enfría hacia afuera
-                    float innerGlow = smoothstep(1.0, 0.34, r);
-                    vec3 col = mix(u_colCool, u_colWarm, innerGlow);
-                    col = mix(col, u_colHot, pow(innerGlow, 3.0) * (0.5 + 0.5 * bright));
-                    float edgeFade = smoothstep(0.34, 0.42, r) * smoothstep(1.0, 0.82, r);
-                    float alpha = edgeFade * (0.55 + 0.45 * bright);
-                    gl_FragColor = vec4(col, alpha);
-                }
-            `;
+                    uniform float u_time;
+                    uniform vec3 u_colHot;
+                    uniform vec3 u_colWarm;
+                    uniform vec3 u_colCool;
+                    varying vec2 vUv;
+                    void main(){
+                        vec2 c = vUv - 0.5;
+                        float r = length(c) * 2.0; // 0 centro -> 1 borde
+                        if (r > 1.0 || r < 0.34) discard; // anillo hueco (deja ver el horizonte)
+                        float ang = atan(c.y, c.x);
+                        // remolino: bandas que giran con el tiempo, más densas cerca del centro
+                        float swirl = sin(ang * 6.0 + u_time * 1.6 - r * 10.0) * 0.5 + 0.5;
+                        float band = sin(ang * 14.0 - u_time * 2.4 + r * 18.0) * 0.5 + 0.5;
+                        float bright = mix(swirl, band, 0.4);
+                        // más brillante y cálido cerca del horizonte interior, se enfría hacia afuera
+                        float innerGlow = smoothstep(1.0, 0.34, r);
+                        vec3 col = mix(u_colCool, u_colWarm, innerGlow);
+                        col = mix(col, u_colHot, pow(innerGlow, 3.0) * (0.5 + 0.5 * bright));
+                        float edgeFade = smoothstep(0.34, 0.42, r) * smoothstep(1.0, 0.82, r);
+                        float alpha = edgeFade * (0.55 + 0.45 * bright);
+                        gl_FragColor = vec4(col, alpha);
+                    }
+                `;
         const bhHaloFrag = `
-                uniform float u_time;
-                uniform vec3 u_colHot;
-                uniform vec3 u_colWarm;
-                varying vec2 vUv;
-                void main(){
-                    vec2 c = vUv - 0.5;
-                    float r = length(c) * 2.0;
-                    if (r > 1.0 || r < 0.78) discard;
-                    float ang = atan(c.y, c.x);
-                    float flicker = 0.6 + 0.4 * sin(ang * 10.0 + u_time * 2.0);
-                    float edgeFade = smoothstep(0.78, 0.86, r) * smoothstep(1.0, 0.9, r);
-                    vec3 col = mix(u_colWarm, u_colHot, flicker);
-                    gl_FragColor = vec4(col, edgeFade * 0.85);
-                }
-            `;
+                    uniform float u_time;
+                    uniform vec3 u_colHot;
+                    uniform vec3 u_colWarm;
+                    varying vec2 vUv;
+                    void main(){
+                        vec2 c = vUv - 0.5;
+                        float r = length(c) * 2.0;
+                        if (r > 1.0 || r < 0.78) discard;
+                        float ang = atan(c.y, c.x);
+                        float flicker = 0.6 + 0.4 * sin(ang * 10.0 + u_time * 2.0);
+                        float edgeFade = smoothstep(0.78, 0.86, r) * smoothstep(1.0, 0.9, r);
+                        vec3 col = mix(u_colWarm, u_colHot, flicker);
+                        gl_FragColor = vec4(col, edgeFade * 0.85);
+                    }
+                `;
 
         function crearAgujeroNegro(cx, cy, cz, radioHorizonte, inclinacion, rotY, paleta) {
             const grupo = new THREE.Group();
@@ -1861,107 +2262,107 @@
         // Mismo shader de silueta de gato pero con u_seed para variación,
         // construida como grupo de 5 capas igual que crearNebulaVolumen.
         const catVolVertShader = `
-                varying vec2 vUv;
-                void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
-            `;
+                    varying vec2 vUv;
+                    void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
+                `;
         const catVolFragShader = `
-                uniform float u_time;
-                uniform float u_seed;
-                uniform float u_layerOp;
-                varying vec2 vUv;
+                    uniform float u_time;
+                    uniform float u_seed;
+                    uniform float u_layerOp;
+                    varying vec2 vUv;
 
-                float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
-                float noise(vec3 x){
-                    vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
-                    return mix(mix(mix(hash(i),            hash(i+vec3(1,0,0)),f.x),
-                                   mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
-                               mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
-                                   mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
-                }
-                float fbm(vec3 p){
-                    float v=0.0,a=0.5;
-                    for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.1+vec3(5.2+u_seed,1.3,3.7+u_seed*0.7);a*=0.5;}
-                    return v;
-                }
+                    float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+                    float noise(vec3 x){
+                        vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
+                        return mix(mix(mix(hash(i),            hash(i+vec3(1,0,0)),f.x),
+                                       mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+                                   mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
+                                       mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
+                    }
+                    float fbm(vec3 p){
+                        float v=0.0,a=0.5;
+                        for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.1+vec3(5.2+u_seed,1.3,3.7+u_seed*0.7);a*=0.5;}
+                        return v;
+                    }
 
-                float sdCircle(vec2 p,vec2 c,float r){ return length(p-c)-r; }
-                float sdTriangle(vec2 p,vec2 a,vec2 b,vec2 c2){
-                    vec2 e0=b-a,e1=c2-b,e2=a-c2;
-                    vec2 v0=p-a,v1=p-b,v2=p-c2;
-                    vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
-                    vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
-                    vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
-                    float s=sign(e0.x*e2.y-e0.y*e2.x);
-                    vec2 d=min(min(vec2(dot(pq0,pq0),s*(v0.x*e0.y-v0.y*e0.x)),
-                                   vec2(dot(pq1,pq1),s*(v1.x*e1.y-v1.y*e1.x))),
-                                   vec2(dot(pq2,pq2),s*(v2.x*e2.y-v2.y*e2.x)));
-                    return -sqrt(d.x)*sign(d.y);
-                }
-                float sdCapsule(vec2 p,vec2 a,vec2 b,float r){
-                    vec2 pa=p-a,ba=b-a;
-                    return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0))-r;
-                }
-                // cuerpo del gato: elipse grande debajo de la cabeza
-                float sdEllipse(vec2 p,vec2 c,vec2 ab){
-                    vec2 q=(p-c)/ab; return (length(q)-1.0)*min(ab.x,ab.y);
-                }
+                    float sdCircle(vec2 p,vec2 c,float r){ return length(p-c)-r; }
+                    float sdTriangle(vec2 p,vec2 a,vec2 b,vec2 c2){
+                        vec2 e0=b-a,e1=c2-b,e2=a-c2;
+                        vec2 v0=p-a,v1=p-b,v2=p-c2;
+                        vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
+                        vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
+                        vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
+                        float s=sign(e0.x*e2.y-e0.y*e2.x);
+                        vec2 d=min(min(vec2(dot(pq0,pq0),s*(v0.x*e0.y-v0.y*e0.x)),
+                                       vec2(dot(pq1,pq1),s*(v1.x*e1.y-v1.y*e1.x))),
+                                       vec2(dot(pq2,pq2),s*(v2.x*e2.y-v2.y*e2.x)));
+                        return -sqrt(d.x)*sign(d.y);
+                    }
+                    float sdCapsule(vec2 p,vec2 a,vec2 b,float r){
+                        vec2 pa=p-a,ba=b-a;
+                        return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0))-r;
+                    }
+                    // cuerpo del gato: elipse grande debajo de la cabeza
+                    float sdEllipse(vec2 p,vec2 c,vec2 ab){
+                        vec2 q=(p-c)/ab; return (length(q)-1.0)*min(ab.x,ab.y);
+                    }
 
-                float catFullMask(vec2 p){
-                    // cabeza
-                    float head = sdCircle(p, vec2(0.0, 0.28), 0.30);
-                    // orejas
-                    float earL = sdTriangle(p, vec2(-0.28,0.42),vec2(-0.06,0.42),vec2(-0.20,0.66));
-                    float earR = sdTriangle(p, vec2( 0.06,0.42),vec2( 0.28,0.42),vec2( 0.20,0.66));
-                    // cuerpo: elipse vertical centrada abajo
-                    float body = sdEllipse(p, vec2(0.0,-0.22), vec2(0.26,0.38));
-                    // cola: cápsula arqueada a la derecha
-                    float tail1 = sdCapsule(p, vec2(0.26,-0.50), vec2(0.55,-0.38), 0.055);
-                    float tail2 = sdCapsule(p, vec2(0.55,-0.38), vec2(0.68,-0.10), 0.048);
-                    float tail3 = sdCapsule(p, vec2(0.68,-0.10), vec2(0.62, 0.12), 0.040);
-                    float tail  = min(min(tail1,tail2),tail3);
-                    // patas delanteras: dos cápsulas cortas abajo del cuerpo
-                    float pL = sdCapsule(p, vec2(-0.14,-0.56), vec2(-0.14,-0.72), 0.055);
-                    float pR = sdCapsule(p, vec2( 0.14,-0.56), vec2( 0.14,-0.72), 0.055);
-                    // unión de todo
-                    float solid = min(min(min(head,min(earL,earR)),body),min(min(tail,pL),pR));
-                    // bigotes
-                    float wr=0.011;
-                    float w1L=sdCapsule(p,vec2(-0.28,0.28),vec2(-0.56,0.26),wr);
-                    float w2L=sdCapsule(p,vec2(-0.28,0.24),vec2(-0.56,0.20),wr);
-                    float w1R=sdCapsule(p,vec2( 0.28,0.28),vec2( 0.56,0.26),wr);
-                    float w2R=sdCapsule(p,vec2( 0.28,0.24),vec2( 0.56,0.20),wr);
-                    float whiskers=min(min(w1L,w2L),min(w1R,w2R));
-                    float bodyMask    = smoothstep( 0.04,-0.04, solid);
-                    float whiskerMask = smoothstep( 0.008,-0.008, whiskers)*0.5;
-                    return max(bodyMask, whiskerMask);
-                }
+                    float catFullMask(vec2 p){
+                        // cabeza
+                        float head = sdCircle(p, vec2(0.0, 0.28), 0.30);
+                        // orejas
+                        float earL = sdTriangle(p, vec2(-0.28,0.42),vec2(-0.06,0.42),vec2(-0.20,0.66));
+                        float earR = sdTriangle(p, vec2( 0.06,0.42),vec2( 0.28,0.42),vec2( 0.20,0.66));
+                        // cuerpo: elipse vertical centrada abajo
+                        float body = sdEllipse(p, vec2(0.0,-0.22), vec2(0.26,0.38));
+                        // cola: cápsula arqueada a la derecha
+                        float tail1 = sdCapsule(p, vec2(0.26,-0.50), vec2(0.55,-0.38), 0.055);
+                        float tail2 = sdCapsule(p, vec2(0.55,-0.38), vec2(0.68,-0.10), 0.048);
+                        float tail3 = sdCapsule(p, vec2(0.68,-0.10), vec2(0.62, 0.12), 0.040);
+                        float tail  = min(min(tail1,tail2),tail3);
+                        // patas delanteras: dos cápsulas cortas abajo del cuerpo
+                        float pL = sdCapsule(p, vec2(-0.14,-0.56), vec2(-0.14,-0.72), 0.055);
+                        float pR = sdCapsule(p, vec2( 0.14,-0.56), vec2( 0.14,-0.72), 0.055);
+                        // unión de todo
+                        float solid = min(min(min(head,min(earL,earR)),body),min(min(tail,pL),pR));
+                        // bigotes
+                        float wr=0.011;
+                        float w1L=sdCapsule(p,vec2(-0.28,0.28),vec2(-0.56,0.26),wr);
+                        float w2L=sdCapsule(p,vec2(-0.28,0.24),vec2(-0.56,0.20),wr);
+                        float w1R=sdCapsule(p,vec2( 0.28,0.28),vec2( 0.56,0.26),wr);
+                        float w2R=sdCapsule(p,vec2( 0.28,0.24),vec2( 0.56,0.20),wr);
+                        float whiskers=min(min(w1L,w2L),min(w1R,w2R));
+                        float bodyMask    = smoothstep( 0.04,-0.04, solid);
+                        float whiskerMask = smoothstep( 0.008,-0.008, whiskers)*0.5;
+                        return max(bodyMask, whiskerMask);
+                    }
 
-                void main(){
-                    vec2 uv=(vUv-0.5)*2.1;
-                    float mask=catFullMask(uv);
-                    if(mask<0.01) discard;
+                    void main(){
+                        vec2 uv=(vUv-0.5)*2.1;
+                        float mask=catFullMask(uv);
+                        if(mask<0.01) discard;
 
-                    float t=u_time*0.07+u_seed*2.3;
-                    vec3 p=vec3(uv*2.5+u_seed*4.0,t);
-                    vec3 q=vec3(fbm(p),fbm(p+vec3(1.7,0.9,2.3)),0.0);
-                    vec3 r2=vec3(fbm(p+q*2.0+t),fbm(p+q*1.8-t),0.0);
-                    float den=fbm(p+r2*2.5);
-                    den=smoothstep(0.15,0.85,den);
-                    den=pow(den,1.5)*mask;
+                        float t=u_time*0.07+u_seed*2.3;
+                        vec3 p=vec3(uv*2.5+u_seed*4.0,t);
+                        vec3 q=vec3(fbm(p),fbm(p+vec3(1.7,0.9,2.3)),0.0);
+                        vec3 r2=vec3(fbm(p+q*2.0+t),fbm(p+q*1.8-t),0.0);
+                        float den=fbm(p+r2*2.5);
+                        den=smoothstep(0.15,0.85,den);
+                        den=pow(den,1.5)*mask;
 
-                    // paleta azul-turquesa-blanco nacarado (distinta al gato rosa)
-                    vec3 cA=vec3(0.00,0.05,0.30);
-                    vec3 cB=vec3(0.00,0.28,0.58);
-                    vec3 cC=vec3(0.10,0.62,0.80);
-                    vec3 cD=vec3(0.70,0.92,0.98);
-                    vec3 col=mix(cA,cB,smoothstep(0.0,0.35,den));
-                    col     =mix(col,cC,smoothstep(0.35,0.70,den));
-                    col     =mix(col,cD,smoothstep(0.70,1.00,den));
-                    col    +=vec3(0.05,0.20,0.35)*smoothstep(0.6,1.0,den)*mask*0.4;
+                        // paleta azul-turquesa-blanco nacarado (distinta al gato rosa)
+                        vec3 cA=vec3(0.00,0.05,0.30);
+                        vec3 cB=vec3(0.00,0.28,0.58);
+                        vec3 cC=vec3(0.10,0.62,0.80);
+                        vec3 cD=vec3(0.70,0.92,0.98);
+                        vec3 col=mix(cA,cB,smoothstep(0.0,0.35,den));
+                        col     =mix(col,cC,smoothstep(0.35,0.70,den));
+                        col     =mix(col,cD,smoothstep(0.70,1.00,den));
+                        col    +=vec3(0.05,0.20,0.35)*smoothstep(0.6,1.0,den)*mask*0.4;
 
-                    gl_FragColor=vec4(col, den*u_layerOp);
-                }
-            `;
+                        gl_FragColor=vec4(col, den*u_layerOp);
+                    }
+                `;
 
         // 5 capas volumétricas — misma lógica que crearNebulaVolumen
         const catVolCapas = [
@@ -2212,6 +2613,8 @@
             catNebulaMat.uniforms.u_time.value = tNow;
             actualizarMeteoritos(frame);
             actualizarFugaces(frame);
+            actualizarCinturonRocas();
+            actualizarCinturonRocasPoleth();
             renderer.render(scene, camera);
         }
         animate();
