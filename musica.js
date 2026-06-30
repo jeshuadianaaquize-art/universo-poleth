@@ -1,0 +1,350 @@
+// ── MÓDULO DE MÚSICA (reproductor + playlist) ─────────────────────────────
+// Toda la lógica del reproductor (canciones, controles, lista visual,
+// aleatorio, barra de progreso) vive aquí para no inflar el index.html.
+// Se importa como módulo ES desde index.html con:
+//   import { cargarCancion } from './musica.js';
+//
+// "cargarCancion" se exporta porque el botón de huella (lanzarBigBang)
+// en index.html necesita arrancar la primera canción al iniciar.
+
+// Import "blindado": si lyrics.js no existe, no está en la misma
+// carpeta, o el navegador bloquea módulos (file://), el universo
+// sigue cargando igual. Las letras simplemente no funcionarán.
+let inicializarLetras = () => {};
+let letrasCancionCambiada = () => {};
+try {
+    const mod = await import('./lyrics.js');
+    inicializarLetras = mod.inicializarLetras;
+    letrasCancionCambiada = mod.letrasCancionCambiada;
+} catch (e) {
+    console.warn('No se pudo cargar lyrics.js (las letras no estarán disponibles):', e);
+}
+
+// ── MÚSICA ────────────────────────────────────────────────────────────────
+// Cada canción es { archivo, favorita } — "favorita" = true son las que ya
+// estaban en la playlist original (se marcan con 🐾 en la lista).
+// Ordenadas en bloques por género / energía para que las transiciones entre
+// canciones fluyan mejor (sin saltar de un ritmo a otro de golpe).
+const cancionesData = [
+
+    // ── Pop romántico / soft pop (apertura suave) ──────────────────────
+    { archivo: 'musica/RAYE - WHERE IS MY HUSBAND!.mp3', favorita: true },
+    { archivo: 'musica/Ed Sheeran - Give Me Love.mp3', favorita: true },
+    { archivo: "musica/Ali Gatie - It's You.mp3", favorita: true },
+    { archivo: 'musica/Love song.mp3', favorita: true },
+    { archivo: 'musica/Keane - Somewhere Only We Know (Official Music Video).mp3', favorita: false },
+    { archivo: 'musica/Cody Fry - I Hear a Symphony.mp3', favorita: true },
+    { archivo: "musica/Willamette Stone - Heart Like Yours.mp3", favorita: true },
+    { archivo: 'musica/Maroon 5 - Sunday Morning.mp3', favorita: true },
+    { archivo: 'musica/She\'s The One.mp3', favorita: true },
+    { archivo: 'musica/Happy Together.mp3', favorita: true },
+    { archivo: 'musica/New West - Those Eyes.mp3', favorita: true },
+    { archivo: 'musica/No Idea.mp3', favorita: true },
+    { archivo: 'musica/Sweet Dreams, TN.mp3', favorita: true },
+    { archivo: 'musica/The Exit.mp3', favorita: true },
+    { archivo: 'musica/The Great War.mp3', favorita: true },
+    { archivo: "musica/Isabel LaRosa - i'm yours.mp3", favorita: false },
+    { archivo: 'musica/keshi - Soft Spot.mp3', favorita: true },
+    { archivo: 'musica/Kali Uchis - telepatía.mp3', favorita: false },
+    { archivo: 'musica/Kali Uchis, Peso Pluma - Igual Que Un Ángel.mp3', favorita: false },
+
+    // ── Indie / alternative melancólico ─────────────────────────────────
+    { archivo: 'musica/The 1975 - Robbers.mp3', favorita: true },
+    { archivo: "musica/Rex Orange County - THE SHADE.mp3", favorita: true },
+    { archivo: 'musica/As The World Caves In - Matt Maltese.mp3', favorita: true },
+    { archivo: 'musica/sombr - back to friends.mp3', favorita: false },
+    { archivo: 'musica/The Neighbourhood - Daddy Issues.mp3', favorita: false },
+    { archivo: 'musica/Conan Gray - Heather.mp3', favorita: false },
+    { archivo: 'musica/505.mp3', favorita: false },
+    { archivo: 'musica/Joji - SLOW DANCING IN THE DARK.mp3', favorita: false },
+    { archivo: 'musica/Oliver Tree - Life Goes On.mp3', favorita: false },
+    { archivo: 'musica/Olivia Rodrigo - deja vu.mp3', favorita: false },
+    { archivo: 'musica/Lana Del Rey - Video Games.mp3', favorita: true },
+    { archivo: 'musica/Lana Del Rey - Summertime Sadness (Official Music Video).mp3', favorita: false },
+    { archivo: 'musica/Lana Del Rey - Say Yes To Heaven.mp3', favorita: true },
+    { archivo: 'musica/Damiano David - Mysterious Girl.mp3', favorita: true },
+    { archivo: 'musica/Damiano David - Zombie Lady.mp3', favorita: true },
+    { archivo: "musica/Taylor Swift - The Fate of Ophelia (Official Music Video).mp3", favorita: false },
+    { archivo: 'musica/LIFETIME.mp3', favorita: false },
+
+    // ── Euphoria (HBO) / atmosférico ────────────────────────────────────
+    { archivo: 'musica/Labrinth - Still Dont Know My Name.mp3', favorita: false },
+    { archivo: 'musica/All For Us - Zendaya Only.mp3', favorita: false },
+    { archivo: 'musica/LSD - Genius ft. Sia, Diplo, Labrinth.mp3', favorita: false },
+    { archivo: 'musica/Billie Eilish - LUNCH.mp3', favorita: false },
+    { archivo: 'musica/Billie Eilish - CHIHIRO (Official Lyric Video).mp3', favorita: false },
+    { archivo: 'musica/Billie Eilish - WILDFLOWER (Official Lyric Video).mp3', favorita: false },
+    { archivo: 'musica/Happier Than Ever.mp3', favorita: false },
+
+    // ── R&B / pop sensual ────────────────────────────────────────────
+    { archivo: "musica/Ariana Grande - better off.mp3", favorita: true },
+    { archivo: 'musica/Ariana Grande - goodnight n go.mp3', favorita: true },
+    { archivo: 'musica/Ariana Grande - imagine.mp3', favorita: true },
+    { archivo: 'musica/Ariana Grande - intro.mp3', favorita: true },
+    { archivo: 'musica/Ariana Grande - pov.mp3', favorita: true },
+    { archivo: "musica/Ariana Grande - no tears left to cry (Official Video).mp3", favorita: false },
+    { archivo: "musica/Ariana Grande - we can't be friends (wait for your love) (official music video).mp3", favorita: false },
+    { archivo: 'musica/Ariana Grande - hate that i made you love me (official music video).mp3', favorita: false },
+    { archivo: 'musica/The Weeknd, Ariana Grande - Die For You.mp3', favorita: true },
+    { archivo: 'musica/The Weeknd, JENNIE & Lily Rose Depp - One Of The Girls (Official Audio).mp3', favorita: false },
+    { archivo: 'musica/Doja Cat, The Weeknd - You Right (Official Video).mp3', favorita: false },
+    { archivo: 'musica/Selena Gomez - Fetish ft. Gucci Mane (Official Music Video).mp3', favorita: false },
+    { archivo: 'musica/Dove Cameron - Boyfriend (Official Video).mp3', favorita: false },
+    { archivo: 'musica/RIDE OR DIE PT. 2 FT. TOKISCHA & VILLANO ANTILLANO (VÍDEO CON LETRAS).mp3', favorita: false },
+    { archivo: 'musica/Dracula (JENNIE Remix).mp3', favorita: false },
+    { archivo: 'musica/HUMBE - KINTSUGI.mp3', favorita: false },
+
+    // ── Pop / dance mainstream (sube la energía) ────────────────────────
+    { archivo: 'musica/Harry Styles - Adore You.mp3', favorita: true },
+    { archivo: 'musica/Harry Styles - Coming Up Roses.mp3', favorita: true },
+    { archivo: 'musica/Shawn Mendes - There\'s Nothing Holdin\' Me Back.mp3', favorita: true },
+    { archivo: 'musica/DJ Snake, Justin Bieber - Let Me Love You.mp3', favorita: true },
+    { archivo: 'musica/Sabrina Carpenter - Read your Mind.mp3', favorita: true },
+    { archivo: 'musica/Sabrina Carpenter - Espresso.mp3', favorita: false },
+    { archivo: 'musica/Dua Lipa - Break My Heart (Official Video).mp3', favorita: false },
+    { archivo: 'musica/Camila Cabello - Shameless (Official Video).mp3', favorita: false },
+    { archivo: 'musica/Carly Rae Jepsen - Call Me Maybe.mp3', favorita: false },
+    { archivo: 'musica/OneRepublic - Counting Stars.mp3', favorita: false },
+    { archivo: 'musica/Tove Lo - Habits (Stay High).mp3', favorita: false },
+    { archivo: 'musica/Ariana Grande ft. Nicki Minaj - Side To Side (Official Video) ft. Nicki Minaj.mp3', favorita: false },
+    { archivo: 'musica/Ariana Grande - 7 rings (Official Video).mp3', favorita: false },
+    { archivo: 'musica/Justin Bieber - Beauty And A Beat (Official Music Video) ft. Nicki Minaj.mp3', favorita: false },
+    { archivo: 'musica/Robin Schulz - Sugar (feat. Francesco Yates) (OFFICIAL MUSIC VIDEO).mp3', favorita: false },
+    { archivo: 'musica/5 Seconds of Summer - Youngblood (Alt Version).mp3', favorita: false },
+    { archivo: 'musica/5 Seconds of Summer - Teeth (Official Video).mp3', favorita: false },
+    { archivo: 'musica/The Wanted - Glad You Came.mp3', favorita: false },
+    { archivo: 'musica/Austin Mahone - Mmm Yeah ft. Pitbull.mp3', favorita: false },
+    { archivo: 'musica/DNCE - Cake By The Ocean.mp3', favorita: false },
+    { archivo: 'musica/LET THE WORLD BURN (Official Music Video).mp3', favorita: false },
+    { archivo: "musica/Lady Gaga, Doechii - RUNWAY (Official Music Video).mp3", favorita: false },
+    { archivo: "musica/Lady Gaga - Abracadabra (Official Music Video).mp3", favorita: false },
+
+    // ── Bruno Mars / funk-pop ─────────────────────────────────────────
+    { archivo: 'musica/Bruno Mars - Just The Way You Are.mp3', favorita: true },
+    { archivo: 'musica/Bruno Mars - Locked Out Of Heaven.mp3', favorita: true },
+    { archivo: 'musica/Bruno Mars - Risk It All.mp3', favorita: true },
+    { archivo: "musica/Bruno Mars - Thats What I Like [Official Music Video].mp3", favorita: false },
+    { archivo: 'musica/Maroon 5 - Sugar (Official Music Video).mp3', favorita: false },
+
+    // ── Big Time Rush / pop juvenil 2010s ────────────────────────────
+    { archivo: 'musica/Big Time Rush - Confetti Falling (Official Video).mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - City Is Ours (Official Video).mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Big Night (Official Video).mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Til I Forget About You.mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Any Kind of Guy (Official Video).mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Music Sounds Better (Official Video) ft. Mann.mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Worldwide (Video).mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Boyfriend (Official Video) ft. Snoop Dogg.mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Windows Down (Official Video).mp3', favorita: false },
+
+    // ── Clásicos / soul / disco-pop ───────────────────────────────────
+    { archivo: 'musica/Amy Winehouse - Back To Black.mp3', favorita: false },
+    { archivo: 'musica/Vogue.mp3', favorita: false },
+    { archivo: 'musica/Remember The Time.mp3', favorita: false },
+    { archivo: 'musica/Michael Jackson - Human Nature (Audio).mp3', favorita: false },
+    { archivo: "musica/Michael Jackson - Don't Stop 'Til You Get Enough (Official Video - Upscaled).mp3", favorita: false },
+    { archivo: 'musica/Beat It.mp3', favorita: false },
+    { archivo: 'musica/You Rock My World (Radio Edit).mp3', favorita: false },
+];
+
+// Lista plana de rutas (se mantiene por compatibilidad con el resto del código)
+const cancionesLista = cancionesData.map(c => c.archivo);
+
+// Reproducción en el orden exacto en que están en cancionesData (por género)
+let indiceActual = 0;
+let reproduciendo = false;
+
+// ── Orden de reproducción (normal o aleatorio) ──────────────────────────
+let aleatorioActivo = false;
+let ordenReproduccion = cancionesLista.map((_, i) => i);
+let posicionActual = 0;
+
+function mezclarArray(array) {
+    const a = array.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+const audio = new Audio();
+const btnPlay = document.getElementById('btn-play');
+const songTitle = document.getElementById('song-title');
+const waveformBar = document.getElementById('waveform-bar');
+const timeCurrent = document.getElementById('time-current');
+const timeTotal = document.getElementById('time-total');
+const btnList = document.getElementById('btn-list');
+const playlistPanel = document.getElementById('playlist-panel');
+const playlistScroll = document.getElementById('playlist-scroll');
+
+// ── Waveform decorativo y funcional como barra de progreso ─────────────
+// Generamos N barritas con alturas pseudo-aleatorias (pero estables,
+// con una "semilla" para que no cambien de forma en cada repintado)
+// y luego pintamos de color las que ya se "reprodujeron" según el
+// avance de la canción, igual que en la imagen de referencia.
+const WF_TOTAL_BARRAS = 60;
+let wfSeed = 1234;
+function wfRandom() {
+    // PRNG simple y determinista para que el patrón sea estable
+    wfSeed = (wfSeed * 9301 + 49297) % 233280;
+    return wfSeed / 233280;
+}
+function generarWaveform() {
+    waveformBar.innerHTML = '';
+    wfSeed = 1234;
+    for (let i = 0; i < WF_TOTAL_BARRAS; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'wf-bar';
+        // Envolvente tipo "onda de voz": más alta al centro de cada grupo
+        const onda = Math.sin((i / WF_TOTAL_BARRAS) * Math.PI * 3.2) * 0.5 + 0.5;
+        const ruido = wfRandom() * 0.6 + 0.4;
+        const alturaPct = Math.max(18, Math.min(100, onda * ruido * 100));
+        bar.style.height = alturaPct + '%';
+        waveformBar.appendChild(bar);
+    }
+}
+function actualizarWaveformProgreso(fraccion) {
+    const barras = waveformBar.children;
+    const activas = Math.round(fraccion * barras.length);
+    for (let i = 0; i < barras.length; i++) {
+        barras[i].classList.toggle('wf-played', i < activas);
+    }
+}
+generarWaveform();
+
+waveformBar.addEventListener('click', (e) => {
+    if (!audio.duration) return;
+    const rect = waveformBar.getBoundingClientRect();
+    const fraccion = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    audio.currentTime = fraccion * audio.duration;
+    actualizarWaveformProgreso(fraccion);
+});
+
+function formatearTiempo(segundos) {
+    if (isNaN(segundos)) return "0:00";
+    const m = Math.floor(segundos / 60);
+    const s = Math.floor(segundos % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function nombreLimpioDe(ruta) {
+    return ruta.replace('musica/', '').replace('.mp3', '');
+}
+
+// ── Construir lista visual de canciones ──────────────────────────────────
+// Se reconstruye respetando "ordenReproduccion" (secuencial o aleatorio)
+function construirListaVisual() {
+    playlistScroll.innerHTML = '';
+    ordenReproduccion.forEach((indiceReal) => {
+        const cancion = cancionesData[indiceReal];
+        const item = document.createElement('div');
+        item.className = 'playlist-item';
+        item.dataset.indiceReal = indiceReal;
+
+        const icon = document.createElement('span');
+        icon.className = 'pl-icon';
+        icon.textContent = cancion.favorita ? '🐾' : '✨';
+
+        const name = document.createElement('span');
+        name.className = 'pl-name';
+        name.textContent = nombreLimpioDe(cancion.archivo);
+
+        item.appendChild(icon);
+        item.appendChild(name);
+        item.addEventListener('click', () => {
+            indiceActual = indiceReal;
+            posicionActual = ordenReproduccion.indexOf(indiceReal);
+            cargarCancion(0, true);
+            actualizarResaltadoLista();
+        });
+        playlistScroll.appendChild(item);
+    });
+}
+
+function actualizarResaltadoLista() {
+    document.querySelectorAll('.playlist-item').forEach(el => {
+        el.classList.toggle('playing', Number(el.dataset.indiceReal) === indiceActual);
+    });
+    const activo = playlistScroll.querySelector('.playlist-item.playing');
+    if (activo) activo.scrollIntoView({ block: 'nearest' });
+}
+
+btnList.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const abierto = playlistPanel.classList.toggle('open');
+    btnList.classList.toggle('active', abierto);
+    if (abierto) actualizarResaltadoLista();
+});
+
+document.addEventListener('click', (e) => {
+    if (!playlistPanel.contains(e.target) && e.target !== btnList) {
+        playlistPanel.classList.remove('open');
+        btnList.classList.remove('active');
+    }
+});
+
+function cargarCancion(paso, autoplay) {
+    posicionActual = (posicionActual + paso + ordenReproduccion.length) % ordenReproduccion.length;
+    indiceActual = ordenReproduccion[posicionActual];
+    const ruta = cancionesLista[indiceActual];
+    audio.src = ruta;
+
+    // Limpiar el nombre para que se vea bonito
+    let nombreLimpio = nombreLimpioDe(ruta);
+    songTitle.textContent = '♪ ' + nombreLimpio;
+
+    if (autoplay) {
+        audio.play().catch(() => { });
+        reproduciendo = true;
+        btnPlay.textContent = '⏸';
+    }
+    actualizarResaltadoLista();
+    letrasCancionCambiada(nombreLimpio);
+}
+
+// Eventos de la barra de progreso
+audio.addEventListener('timeupdate', () => {
+    if (audio.duration) {
+        actualizarWaveformProgreso(audio.currentTime / audio.duration);
+        timeCurrent.textContent = formatearTiempo(audio.currentTime);
+    }
+});
+audio.addEventListener('loadedmetadata', () => {
+    timeTotal.textContent = formatearTiempo(audio.duration);
+});
+
+audio.addEventListener('ended', () => cargarCancion(1, true));
+
+btnPlay.addEventListener('click', () => {
+    if (reproduciendo) { audio.pause(); reproduciendo = false; btnPlay.textContent = '▶'; }
+    else { audio.play().catch(() => { }); reproduciendo = true; btnPlay.textContent = '⏸'; }
+});
+document.getElementById('btn-next').addEventListener('click', () => cargarCancion(1, reproduciendo));
+document.getElementById('btn-prev').addEventListener('click', () => cargarCancion(-1, reproduciendo));
+
+const btnShuffle = document.getElementById('btn-shuffle');
+btnShuffle.addEventListener('click', () => {
+    aleatorioActivo = !aleatorioActivo;
+    btnShuffle.classList.toggle('active', aleatorioActivo);
+
+    if (aleatorioActivo) {
+        // Nuevo orden aleatorio, manteniendo la canción actual donde está sonando
+        const resto = cancionesLista.map((_, i) => i).filter(i => i !== indiceActual);
+        ordenReproduccion = [indiceActual, ...mezclarArray(resto)];
+        posicionActual = 0;
+    } else {
+        // Volver al orden original (secuencial)
+        ordenReproduccion = cancionesLista.map((_, i) => i);
+        posicionActual = indiceActual;
+    }
+    construirListaVisual();
+    actualizarResaltadoLista();
+});
+
+// Cargar la primera canción
+construirListaVisual();
+cargarCancion(0, false);
+inicializarLetras(audio, () => nombreLimpioDe(cancionesLista[indiceActual]));
+
+export { cargarCancion };
