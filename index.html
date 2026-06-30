@@ -285,6 +285,10 @@
                 background: rgba(255,20,147,0.3);
             }
 
+            .mc-btn svg {
+                display: block;
+            }
+
             .mc-btn:active {
                 transform: scale(0.92);
             }
@@ -300,6 +304,13 @@
         #btn-list.active {
             background: rgba(255,20,147,0.35);
             border-color: rgba(255,105,180,0.9);
+        }
+
+        #btn-shuffle.active {
+            background: rgba(255,20,147,0.35);
+            border-color: rgba(255,105,180,0.9);
+            box-shadow: 0 0 8px rgba(255,105,180,0.7), 0 0 16px rgba(255,20,147,0.4);
+            text-shadow: 0 0 6px rgba(255,105,180,0.9);
         }
 
         #playlist-panel {
@@ -480,6 +491,15 @@
             <button class="mc-btn" id="btn-prev">⏮</button>
             <button class="mc-btn" id="btn-play">▶</button>
             <button class="mc-btn" id="btn-next">⏭</button>
+            <button class="mc-btn" id="btn-shuffle" title="Aleatorio">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 3 21 3 21 8"></polyline>
+                    <line x1="4" y1="20" x2="21" y2="3"></line>
+                    <polyline points="21 16 21 21 16 21"></polyline>
+                    <line x1="15" y1="15" x2="21" y2="21"></line>
+                    <line x1="4" y1="4" x2="9" y2="9"></line>
+                </svg>
+            </button>
             <button class="mc-btn" id="btn-list" title="Lista de canciones">☰</button>
             <button class="mc-btn" id="btn-lyrics" title="Letras">💬</button>
             <div id="playlist-panel">
@@ -644,6 +664,20 @@
         let indiceActual = 0;
         let reproduciendo = false;
 
+        // ── Orden de reproducción (normal o aleatorio) ──────────────────────────
+        let aleatorioActivo = false;
+        let ordenReproduccion = cancionesLista.map((_, i) => i);
+        let posicionActual = 0;
+
+        function mezclarArray(array) {
+            const a = array.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
         const audio = new Audio();
         const btnPlay = document.getElementById('btn-play');
         const songTitle = document.getElementById('song-title');
@@ -709,9 +743,11 @@
         }
 
         // ── Construir lista visual de canciones ──────────────────────────────────
+        // Se reconstruye respetando "ordenReproduccion" (secuencial o aleatorio)
         function construirListaVisual() {
             playlistScroll.innerHTML = '';
-            cancionesData.forEach((cancion, indiceReal) => {
+            ordenReproduccion.forEach((indiceReal) => {
+                const cancion = cancionesData[indiceReal];
                 const item = document.createElement('div');
                 item.className = 'playlist-item';
                 item.dataset.indiceReal = indiceReal;
@@ -728,6 +764,7 @@
                 item.appendChild(name);
                 item.addEventListener('click', () => {
                     indiceActual = indiceReal;
+                    posicionActual = ordenReproduccion.indexOf(indiceReal);
                     cargarCancion(0, true);
                     actualizarResaltadoLista();
                 });
@@ -758,7 +795,8 @@
         });
 
         function cargarCancion(paso, autoplay) {
-            indiceActual = (indiceActual + paso + cancionesLista.length) % cancionesLista.length;
+            posicionActual = (posicionActual + paso + ordenReproduccion.length) % ordenReproduccion.length;
+            indiceActual = ordenReproduccion[posicionActual];
             const ruta = cancionesLista[indiceActual];
             audio.src = ruta;
 
@@ -794,6 +832,25 @@
         });
         document.getElementById('btn-next').addEventListener('click', () => cargarCancion(1, reproduciendo));
         document.getElementById('btn-prev').addEventListener('click', () => cargarCancion(-1, reproduciendo));
+
+        const btnShuffle = document.getElementById('btn-shuffle');
+        btnShuffle.addEventListener('click', () => {
+            aleatorioActivo = !aleatorioActivo;
+            btnShuffle.classList.toggle('active', aleatorioActivo);
+
+            if (aleatorioActivo) {
+                // Nuevo orden aleatorio, manteniendo la canción actual donde está sonando
+                const resto = cancionesLista.map((_, i) => i).filter(i => i !== indiceActual);
+                ordenReproduccion = [indiceActual, ...mezclarArray(resto)];
+                posicionActual = 0;
+            } else {
+                // Volver al orden original (secuencial)
+                ordenReproduccion = cancionesLista.map((_, i) => i);
+                posicionActual = indiceActual;
+            }
+            construirListaVisual();
+            actualizarResaltadoLista();
+        });
 
         // Cargar la primera canción
         construirListaVisual();
