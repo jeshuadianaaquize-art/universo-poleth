@@ -43,22 +43,23 @@ const cancionesData = [
     { archivo: 'musica/Sweet Dreams, TN.mp3', favorita: true },
     { archivo: 'musica/The Exit.mp3', favorita: true },
     { archivo: 'musica/The Great War.mp3', favorita: true },
-    { archivo: "musica/Isabel LaRosa - i'm yours.mp3", favorita: false },
+    { archivo: "musica/Isabel LaRosa - i'm yours (Official Video).mp3", favorita: false },
     { archivo: 'musica/keshi - Soft Spot.mp3', favorita: true },
     { archivo: 'musica/Kali Uchis - telepatía.mp3', favorita: false },
     { archivo: 'musica/Kali Uchis, Peso Pluma - Igual Que Un Ángel.mp3', favorita: false },
+    { archivo: 'musica/Harry Styles - Adore You (Official Video).mp3', favorita: false },
 
     // ── Indie / alternative melancólico ─────────────────────────────────
     { archivo: 'musica/The 1975 - Robbers.mp3', favorita: true },
     { archivo: "musica/Rex Orange County - THE SHADE.mp3", favorita: true },
     { archivo: 'musica/As The World Caves In - Matt Maltese.mp3', favorita: true },
-    { archivo: 'musica/sombr - back to friends.mp3', favorita: false },
-    { archivo: 'musica/The Neighbourhood - Daddy Issues.mp3', favorita: false },
+    { archivo: 'musica/sombr - back to friends (official video).mp3', favorita: false },
+    { archivo: 'musica/The Neighbourhood - Daddy Issues (Official Video).mp3', favorita: false },
     { archivo: 'musica/Conan Gray - Heather.mp3', favorita: false },
     { archivo: 'musica/505.mp3', favorita: false },
     { archivo: 'musica/Joji - SLOW DANCING IN THE DARK.mp3', favorita: false },
-    { archivo: 'musica/Oliver Tree - Life Goes On.mp3', favorita: false },
-    { archivo: 'musica/Olivia Rodrigo - deja vu.mp3', favorita: false },
+    { archivo: 'musica/Oliver Tree - Life Goes On [Music Video].mp3', favorita: false },
+    { archivo: 'musica/Olivia Rodrigo - deja vu (Official Video).mp3', favorita: false },
     { archivo: 'musica/Lana Del Rey - Video Games.mp3', favorita: true },
     { archivo: 'musica/Lana Del Rey - Summertime Sadness (Official Music Video).mp3', favorita: false },
     { archivo: 'musica/Lana Del Rey - Say Yes To Heaven.mp3', favorita: true },
@@ -130,7 +131,7 @@ const cancionesData = [
     { archivo: 'musica/Big Time Rush - Confetti Falling (Official Video).mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - City Is Ours (Official Video).mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - Big Night (Official Video).mp3', favorita: false },
-    { archivo: 'musica/Big Time Rush - Til I Forget About You.mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Til I Forget About You Español.mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - Any Kind of Guy (Official Video).mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - Music Sounds Better (Official Video) ft. Mann.mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - Worldwide (Video).mp3', favorita: false },
@@ -169,6 +170,7 @@ function mezclarArray(array) {
 }
 
 const audio = new Audio();
+audio.crossOrigin = 'anonymous';
 const btnPlay = document.getElementById('btn-play');
 const songTitle = document.getElementById('song-title');
 const waveformBar = document.getElementById('waveform-bar');
@@ -177,6 +179,36 @@ const timeTotal = document.getElementById('time-total');
 const btnList = document.getElementById('btn-list');
 const playlistPanel = document.getElementById('playlist-panel');
 const playlistScroll = document.getElementById('playlist-scroll');
+
+// ── Análisis de audio en tiempo real (barras que reaccionan al sonido) ─
+// Usamos la Web Audio API: conectamos el <audio> a un AnalyserNode que
+// nos da el nivel de cada frecuencia mientras suena. Eso se usa para
+// modular la altura de cada barrita en vivo. Si está pausado o no hay
+// sonido, las barras se quedan planas.
+let audioCtx = null;
+let analizador = null;
+let datosFrecuencia = null;
+let audioCtxConectado = false;
+
+function asegurarAudioContext() {
+    if (audioCtxConectado) {
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        return;
+    }
+    try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const sourceNode = audioCtx.createMediaElementSource(audio);
+        analizador = audioCtx.createAnalyser();
+        analizador.fftSize = 1024;
+        analizador.smoothingTimeConstant = 0.78;
+        sourceNode.connect(analizador);
+        analizador.connect(audioCtx.destination);
+        datosFrecuencia = new Uint8Array(analizador.frequencyBinCount);
+        audioCtxConectado = true;
+    } catch (e) {
+        console.warn('No se pudo iniciar el análisis de audio en vivo (las barras quedarán estáticas):', e);
+    }
+}
 
 // ── Waveform decorativo y funcional como barra de progreso ─────────────
 // Generamos N barritas con alturas pseudo-aleatorias (pero estables,
@@ -190,9 +222,13 @@ function wfRandom() {
     wfSeed = (wfSeed * 9301 + 49297) % 233280;
     return wfSeed / 233280;
 }
+let wfAlturasBase = [];   // patrón de referencia (forma "tipo onda" para que no todas las barras midan igual)
+let wfAlturasActuales = []; // altura actual de cada barra, se anima frame a frame
 function generarWaveform() {
     waveformBar.innerHTML = '';
     wfSeed = 1234;
+    wfAlturasBase = [];
+    wfAlturasActuales = [];
     for (let i = 0; i < WF_TOTAL_BARRAS; i++) {
         const bar = document.createElement('div');
         bar.className = 'wf-bar';
@@ -200,7 +236,9 @@ function generarWaveform() {
         const onda = Math.sin((i / WF_TOTAL_BARRAS) * Math.PI * 3.2) * 0.5 + 0.5;
         const ruido = wfRandom() * 0.6 + 0.4;
         const alturaPct = Math.max(18, Math.min(100, onda * ruido * 100));
-        bar.style.height = alturaPct + '%';
+        wfAlturasBase.push(alturaPct);
+        wfAlturasActuales.push(8);
+        bar.style.height = '8%';
         waveformBar.appendChild(bar);
     }
 }
@@ -211,7 +249,52 @@ function actualizarWaveformProgreso(fraccion) {
         barras[i].classList.toggle('wf-played', i < activas);
     }
 }
+
+// Loop de animación: si hay sonido sonando, las barras "bailan" según
+// el volumen real de cada rango de frecuencia; si no, se aplanan poco
+// a poco (efecto suave, no un corte brusco).
+const WF_PLANO = 8;
+function animarWaveform() {
+    requestAnimationFrame(animarWaveform);
+    const barras = waveformBar.children;
+    if (!barras.length) return;
+
+    const sonando = reproduciendo && !audio.paused && analizador;
+    if (sonando) {
+        analizador.getByteFrequencyData(datosFrecuencia);
+    }
+    const bins = sonando ? datosFrecuencia.length : 0;
+
+    for (let i = 0; i < barras.length; i++) {
+        let destino = WF_PLANO;
+        if (sonando) {
+            // Escala LOGARÍTMICA (no lineal): en audio real casi toda la
+            // energía está en los graves, así que si repartimos los bins
+            // de frecuencia en partes iguales, las primeras barras (graves)
+            // se ven siempre altas y las últimas (agudos) casi planas.
+            // Con escala log, cada barra cubre un rango de frecuencias más
+            // "perceptualmente parejo" (como en un ecualizador real).
+            const inicio = Math.floor(Math.pow(bins, i / barras.length));
+            const fin = Math.max(inicio + 1, Math.floor(Math.pow(bins, (i + 1) / barras.length)));
+            let suma = 0;
+            for (let b = inicio; b < fin && b < bins; b++) suma += datosFrecuencia[b];
+            const promedio = suma / (fin - inicio);
+
+            // Compensación de ganancia: a mayor frecuencia (barras de la
+            // derecha), más boost, porque su volumen real es mucho más bajo.
+            const ganancia = 1 + (i / barras.length) * 2.2;
+            const nivel = Math.min(1, (promedio / 255) * ganancia);
+
+            destino = Math.max(WF_PLANO, Math.min(100, nivel * 100 * (wfAlturasBase[i] / 60)));
+        }
+        const actual = wfAlturasActuales[i] ?? destino;
+        const nuevo = actual + (destino - actual) * 0.35;
+        wfAlturasActuales[i] = nuevo;
+        barras[i].style.height = nuevo + '%';
+    }
+}
 generarWaveform();
+animarWaveform();
 
 waveformBar.addEventListener('click', (e) => {
     if (!audio.duration) return;
@@ -295,6 +378,7 @@ function cargarCancion(paso, autoplay) {
     songTitle.textContent = '♪ ' + nombreLimpio;
 
     if (autoplay) {
+        asegurarAudioContext();
         audio.play().catch(() => { });
         reproduciendo = true;
         btnPlay.textContent = '⏸';
@@ -318,7 +402,7 @@ audio.addEventListener('ended', () => cargarCancion(1, true));
 
 btnPlay.addEventListener('click', () => {
     if (reproduciendo) { audio.pause(); reproduciendo = false; btnPlay.textContent = '▶'; }
-    else { audio.play().catch(() => { }); reproduciendo = true; btnPlay.textContent = '⏸'; }
+    else { asegurarAudioContext(); audio.play().catch(() => { }); reproduciendo = true; btnPlay.textContent = '⏸'; }
 });
 document.getElementById('btn-next').addEventListener('click', () => cargarCancion(1, reproduciendo));
 document.getElementById('btn-prev').addEventListener('click', () => cargarCancion(-1, reproduciendo));
