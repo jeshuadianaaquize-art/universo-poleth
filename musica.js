@@ -8,9 +8,9 @@
 // en index.html necesita arrancar la primera canción al iniciar.
 
 // ── CACHE BUSTING ────────────────────────────────────────────────────────
-// Sube este número cuando subas cambios en lyrics.js a GitHub, para que el
-// navegador lo vuelva a descargar en vez de usar la copia en caché.
-const APP_VERSION = '1.0';
+// Usamos la misma versión global definida en index.html (window.APP_VERSION)
+// para que solo haya UN número que tocar al subir cambios a GitHub.
+const APP_VERSION = window.APP_VERSION || '1.0';
 
 // Import "blindado": si lyrics.js no existe, no está en la misma
 // carpeta, o el navegador bloquea módulos (file://), el universo

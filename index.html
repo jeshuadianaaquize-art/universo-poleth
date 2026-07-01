@@ -512,16 +512,19 @@
     <script type="importmap">
         { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
     </script>
+    <script>
+        // ── VERSIÓN DE LA APP (cache busting) ───────────────────────────────
+        // Sube este número cada vez que subas cambios a GitHub en musica.js
+        // o lyrics.js (1.0 -> 1.1 -> 1.2 ...). Es el ÚNICO lugar que necesitas
+        // tocar: fuerza al navegador a descargar los archivos nuevos en vez
+        // de usar la copia vieja guardada en caché.
+        window.APP_VERSION = '1.0';
+    </script>
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // ── CACHE BUSTING ────────────────────────────────────────────────────
-        // Cuando subas cambios a GitHub y no se vean reflejados, sube este
-        // número (v=1.0 -> v=1.1 -> v=1.2 ...) en la línea de abajo. Eso
-        // fuerza al navegador a descargar musica.js de nuevo en vez de usar
-        // la copia vieja guardada en caché.
-        import { cargarCancion } from './musica.js?v=1.0';
+        const { cargarCancion } = await import(`./musica.js?v=${window.APP_VERSION}`);
 
         // ── ESCENA THREE.JS ───────────────────────────────────────────────────────
         const scene = new THREE.Scene();
