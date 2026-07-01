@@ -1012,176 +1012,13 @@
             if (catMaterials.length > 0) { const cg = new THREE.Sprite(catMaterials[0]); cg.scale.set(40, 40, 1); cg.position.set(-25, 30, 5); centerGroup.add(cg); }
         }
 
-        // ── TIERRA PROCEDURAL POR SHADER (GPU) ──────────────────────────────────
-        // En vez de pintar una textura de 2048x2048 a mano en un <canvas> (lento
-        // de generar al cargar), los biomas/océanos/nubes se calculan en tiempo
-        // real dentro de un fragment shader (GLSL) que corre en la GPU. Resultado
-        // visual equivalente (océanos, selva, desierto, tundra, hielo, nubes en
-        // movimiento) pero sin ese costo de arranque.
-        const noiseGLSLTierra = `
-            vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
-            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-            float snoiseTierra(vec3 v) {
-                const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
-                const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
-                vec3 i  = floor(v + dot(v, C.yyy) );
-                vec3 x0 = v - i + dot(i, C.xxx) ;
-                vec3 g = step(x0.yzx, x0.xyz);
-                vec3 l = 1.0 - g;
-                vec3 i1 = min( g.xyz, l.zxy );
-                vec3 i2 = max( g.xyz, l.zxy );
-                vec3 x1 = x0 - i1 + C.xxx;
-                vec3 x2 = x0 - i2 + C.yyy;
-                vec3 x3 = x0 - D.yyy;
-                i = mod289(i);
-                vec4 p = permute( permute( permute(
-                            i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
-                          + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
-                          + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
-                float n_ = 0.142857142857;
-                vec3  ns = n_ * D.wyz - D.xzx;
-                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-                vec4 x_ = floor(j * ns.z);
-                vec4 y_ = floor(j - 7.0 * x_ );
-                vec4 x = x_ *ns.x + ns.yyyy;
-                vec4 y = y_ *ns.x + ns.yyyy;
-                vec4 h = 1.0 - abs(x) - abs(y);
-                vec4 b0 = vec4( x.xy, y.xy );
-                vec4 b1 = vec4( x.zw, y.zw );
-                vec4 s0 = floor(b0)*2.0 + 1.0;
-                vec4 s1 = floor(b1)*2.0 + 1.0;
-                vec4 sh = -step(h, vec4(0.0));
-                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
-                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
-                vec3 p0 = vec3(a0.xy,h.x);
-                vec3 p1 = vec3(a0.zw,h.y);
-                vec3 p2 = vec3(a1.xy,h.z);
-                vec3 p3 = vec3(a1.zw,h.w);
-                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-                p0 *= norm.x;
-                p1 *= norm.y;
-                p2 *= norm.z;
-                p3 *= norm.w;
-                vec4 m = max(0.5 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-                m = m * m;
-                return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
-            }
-            float fbmTierra(vec3 x) {
-                float v = 0.0;
-                float a = 0.5;
-                vec3 shift = vec3(100);
-                for (int i = 0; i < 5; ++i) {
-                    v += a * snoiseTierra(x);
-                    x = x * 2.0 + shift;
-                    a *= 0.5;
-                }
-                return v;
-            }
-        `;
-
-        const tierraVertexShader = `
-            varying vec3 vNormalT;
-            varying vec3 vPositionT;
-            varying vec3 vWorldPositionT;
-            void main() {
-                vNormalT = normalize(normalMatrix * normal);
-                // El shader de bioma/nubes está calibrado para una esfera de
-                // radio 1 (igual que en el original). Aquí la Tierra tiene
-                // radio 28, así que normalizamos la posición para conservar
-                // exactamente la misma escala de ruido/latitud sin tener que
-                // tocar nada del sistema de órbitas ni la geometría existente.
-                vPositionT = normalize(position);
-                vec4 worldPos = modelMatrix * vec4(position, 1.0);
-                vWorldPositionT = worldPos.xyz;
-                gl_Position = projectionMatrix * viewMatrix * worldPos;
-            }
-        `;
-
-        const tierraFragmentShader = `
-            ${noiseGLSLTierra}
-            varying vec3 vNormalT;
-            varying vec3 vPositionT;
-            varying vec3 vWorldPositionT;
-            uniform vec3 uSunDirT;
-            uniform vec3 uCameraPosT;
-
-            void main() {
-                float elevation = fbmTierra(vPositionT * 2.5);
-                float latitude = abs(vPositionT.y);
-
-                vec3 deepWater = vec3(0.02, 0.08, 0.25);
-                vec3 shallowWater = vec3(0.08, 0.35, 0.65);
-                vec3 jungle = vec3(0.05, 0.25, 0.05);
-                vec3 forest = vec3(0.15, 0.35, 0.1);
-                vec3 desert = vec3(0.7, 0.6, 0.4);
-                vec3 tundra = vec3(0.4, 0.4, 0.35);
-                vec3 ice = vec3(0.95, 0.98, 1.0);
-
-                vec3 color;
-                float specularity = 0.0;
-                vec3 normal = normalize(vNormalT);
-                float seaLevel = 0.05;
-
-                if (elevation < seaLevel) {
-                    color = mix(deepWater, shallowWater, smoothstep(-0.5, seaLevel, elevation));
-                    if (latitude > 0.85 + fbmTierra(vPositionT * 10.0) * 0.1) {
-                        color = ice;
-                        specularity = 0.2;
-                    } else {
-                        specularity = 1.0;
-                    }
-                } else {
-                    specularity = 0.0;
-                    if (latitude < 0.25) {
-                        color = mix(jungle, forest, smoothstep(0.1, 0.25, latitude));
-                    } else if (latitude < 0.5) {
-                        color = mix(forest, desert, smoothstep(0.25, 0.4, latitude));
-                    } else if (latitude < 0.75) {
-                        color = mix(desert, tundra, smoothstep(0.5, 0.7, latitude));
-                    } else {
-                        color = mix(tundra, ice, smoothstep(0.75, 0.85, latitude));
-                    }
-                    if (elevation > 0.5) {
-                        color = mix(color, ice, smoothstep(0.5, 0.7, elevation));
-                    }
-                    float eps = 0.02;
-                    float dx = fbmTierra((vPositionT + vec3(eps, 0.0, 0.0)) * 2.5) - elevation;
-                    float dy = fbmTierra((vPositionT + vec3(0.0, eps, 0.0)) * 2.5) - elevation;
-                    float dz = fbmTierra((vPositionT + vec3(0.0, 0.0, eps)) * 2.5) - elevation;
-                    normal = normalize(normal - vec3(dx, dy, dz) * 2.0);
-                }
-
-                float diffuse = max(dot(normal, uSunDirT), 0.0);
-                float ambient = 0.06;
-                vec3 viewDir = normalize(uCameraPosT - vWorldPositionT);
-                vec3 halfVector = normalize(uSunDirT + viewDir);
-                float specularAngle = max(dot(normal, halfVector), 0.0);
-                float specular = pow(specularAngle, 64.0) * specularity * diffuse;
-
-                vec3 finalColor = color * (diffuse + ambient) + vec3(1.0) * specular;
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `;
-
-        const nubesFragmentShader = `
-            ${noiseGLSLTierra}
-            varying vec3 vNormalT;
-            varying vec3 vPositionT;
-            uniform vec3 uSunDirT;
-            uniform float uTimeT;
-            void main() {
-                vec3 noisePos = vPositionT * 3.0;
-                noisePos.x += uTimeT * 0.02;
-                noisePos.y += uTimeT * 0.01;
-                float cloudNoise = fbmTierra(noisePos);
-                float alpha = smoothstep(0.4, 0.7, cloudNoise);
-                float diffuse = max(dot(normalize(vNormalT), uSunDirT), 0.0);
-                vec3 color = vec3(1.0) * (diffuse * 0.8 + 0.25);
-                gl_FragColor = vec4(color, alpha * (diffuse + 0.15));
-            }
-        `;
+        // ── TIERRA (textura de imagen, liviana) ─────────────────────────────────
+        // Antes esto era un shader GLSL que recalculaba ruido procedural por
+        // cada píxel en cada frame (costoso). Ahora usamos una imagen fija
+        // (tieramor.png, mapa equirectangular) igual que el resto de
+        // planetas: se carga UNA sola vez y de ahí en adelante solo se
+        // muestrea, sin recalcular nada — mucho más rápido de cargar y de
+        // renderizar cuadro a cuadro.
 
         // ── PLANETAS ──────────────────────────────────────────────────────────────
         // Pequeño glow propio (sprite con degradado) para que cada planeta
@@ -1236,38 +1073,32 @@
         addP(280, 10, '#9c5a3c', '#b97250', 'craters', 0.0024);
 
         // ── TIERRA REALISTA + LUNA ──────────────────────────────────────────────
-        // Continentes/océanos en la esfera principal + una segunda esfera ligeramente
-        // más grande con la capa de nubes (textura con alpha), rotando a su propia
-        // velocidad para que el efecto de movimiento atmosférico se vea real.
-        // La Luna es un grupo hijo de la Tierra: orbita alrededor de ella, no del sol.
-        // uSunDirT se recalcula cada frame (ver loop de animación) porque, a
-        // diferencia de una escena con sol fijo, aquí la Tierra orbita alrededor
-        // del sunLight real (origen 0,0,0), así que la dirección de la luz
-        // respecto al planeta cambia constantemente.
-        const tierraMaterial = new THREE.ShaderMaterial({
-            vertexShader: tierraVertexShader,
-            fragmentShader: tierraFragmentShader,
-            uniforms: {
-                uSunDirT: { value: new THREE.Vector3(1, 0, 0) },
-                uCameraPosT: { value: camera.position }
-            }
+        // Esfera con textura de imagen en vez de shader procedural: mucho más
+        // liviana (se muestrea una imagen ya calculada, no se recalcula ruido
+        // por cada píxel en cada frame). La textura se carga de forma
+        // ASÍNCRONA: la Tierra ya existe y orbita desde el primer frame (con
+        // un tono azul provisional), y en cuanto termine de descargar
+        // 'tieramor.png' se le aplica encima, sin bloquear ni retrasar el
+        // arranque del resto del universo.
+        const earthMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1c3f66,   // azul océano provisional, mientras carga la textura
+            roughness: 0.6,
+            metalness: 0.0
         });
-        const earthMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(28, 5), tierraMaterial);
+        const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(28, 64, 64), earthMaterial);
         solarSystem.add(earthMesh);
-        const nubesMaterial = new THREE.ShaderMaterial({
-            vertexShader: tierraVertexShader,
-            fragmentShader: nubesFragmentShader,
-            uniforms: {
-                uSunDirT: { value: new THREE.Vector3(1, 0, 0) },
-                uTimeT: { value: 0.0 }
-            },
-            transparent: true,
-            depthWrite: false
-        });
-        const cloudsMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(28.6, 5), nubesMaterial);
-        earthMesh.add(cloudsMesh);
         crearGlowPlaneta(earthMesh, 28, '#5fa8ff', 0.22);
         registrarOrbita(earthMesh, 360, 0.002, 0.009);
+
+        textureLoader.load(`./imagenes/tieramor.png?v=${window.APP_VERSION}`, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            earthMaterial.map = texture;
+            earthMaterial.color.set(0xffffff); // ya no hace falta el tinte provisional
+            earthMaterial.needsUpdate = true;
+        }, undefined, (err) => {
+            console.warn('No se pudo cargar tieramor.png (la Tierra se queda con el tono azul provisional):', err);
+        });
 
         // Textura de la Luna: gris con cráteres realistas (reutiliza el generador
         // de planetas rocosos en tono gris ceniza)
@@ -2458,15 +2289,6 @@
                 lunaMesh.position.set(Math.cos(lu.ang) * lu.radio, 0, Math.sin(lu.ang) * lu.radio);
                 lunaMesh.rotation.y += lu.spin;
             }
-            // Shader de la Tierra: la dirección del sol se recalcula cada frame
-            // porque el planeta orbita (a diferencia de un sol fijo), y uTimeT
-            // anima el desplazamiento de las nubes.
-            const tNowTierra = (Date.now() - clockNebula.start) * 0.001;
-            const sunDirTierra = earthMesh.position.clone().multiplyScalar(-1).normalize();
-            tierraMaterial.uniforms.uSunDirT.value.copy(sunDirTierra);
-            tierraMaterial.uniforms.uCameraPosT.value.copy(camera.position);
-            nubesMaterial.uniforms.uSunDirT.value.copy(sunDirTierra);
-            nubesMaterial.uniforms.uTimeT.value = tNowTierra;
             scene.children.forEach(c => { if (c.isSprite && c.userData.sp) c.position.y = c.userData.y + Math.sin(Date.now() * 0.002) * 2; });
             milkyWay.rotation.y += 0.00005;
             dustParticles.rotation.y += 0.00008; dustParticles.rotation.x += 0.00003;
