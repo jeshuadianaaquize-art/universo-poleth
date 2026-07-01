@@ -1248,31 +1248,36 @@
         const uranoMesh = addPImagen('urano', 940, 22, '#bdeef0', '#7fd0d6', 0.0017);
 
         // ── ANILLOS DE URANO ─────────────────────────────────────────────────
-        // A diferencia de los de Saturno (un disco ancho y continuo), los
-        // anillos reales de Urano son finos, oscuros (gris-violeta, casi sin
-        // brillo) y están separados por huecos grandes — se ven como varias
-        // líneas delgadas, no una banda sólida. Además, por la inclinación
-        // axial extrema del planeta (~98°), se ven casi verticales alrededor
-        // de la esfera en vez de horizontales como en Saturno.
+        // Ajustado a la foto de referencia: un anillo bastante más grueso y
+        // visible que el intento anterior (antes casi no se notaba), en
+        // tonos gris-violeta con un brillo perlado, sin llegar a ser dorado
+        // como el de Saturno. Sigue siendo casi vertical por la inclinación
+        // axial extrema del planeta (~98°).
         function crearTexturaAnilloUrano() {
             const s = 512, c = document.createElement('canvas'); c.width = s; c.height = 1;
             const x = c.getContext('2d');
-            const bandas = [0.14, 0.24, 0.32, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90];
+            const bandas = [0.10, 0.22, 0.34, 0.46, 0.58, 0.70, 0.82, 0.94];
             for (let i = 0; i < s; i++) {
                 const t = i / s; // 0 = borde interior, 1 = borde exterior
-                let brillo = 0;
+                // Base sólida (antes empezaba en 0 y casi no se veía) + bandas
+                // más anchas y suaves encima, para que se lea como un anillo
+                // grueso y continuo en vez de líneas casi invisibles.
+                let brillo = 0.4;
                 for (const b of bandas) {
-                    brillo += Math.exp(-Math.pow((t - b) * 130, 2));
+                    brillo += 0.5 * Math.exp(-Math.pow((t - b) * 55, 2));
                 }
-                brillo = Math.min(1, brillo) * (0.55 + Math.random() * 0.25);
+                brillo = Math.min(1, brillo) * (0.8 + Math.random() * 0.15);
                 // Bordes interior/exterior se desvanecen
-                const fadeIn = Math.min(1, t / 0.03);
-                const fadeOut = Math.min(1, (1 - t) / 0.03);
+                const fadeIn = Math.min(1, t / 0.05);
+                const fadeOut = Math.min(1, (1 - t) / 0.05);
                 brillo *= fadeIn * fadeOut;
-                // Tono gris-violeta oscuro, casi opaco (los anillos de Urano
-                // apenas reflejan luz, no son dorados como los de Saturno)
-                const tono = 55 + brillo * 55;
-                x.fillStyle = `rgba(${tono},${tono * 0.95},${tono * 1.15},${brillo})`;
+                // Colores tomados de la foto de referencia: gris-violeta
+                // oscuro con un brillo perlado/celeste tenue en las zonas
+                // más iluminadas del anillo.
+                const r = 58 + brillo * 75;
+                const g = 58 + brillo * 72;
+                const b2 = 78 + brillo * 92;
+                x.fillStyle = `rgba(${r},${g},${b2},${brillo})`;
                 x.fillRect(i, 0, 1, 1);
             }
             const tex = new THREE.CanvasTexture(c);
@@ -1280,9 +1285,10 @@
             return tex;
         }
         const uranoAnilloTex = crearTexturaAnilloUrano();
+        const URANO_ANILLO_IN = 26, URANO_ANILLO_OUT = 58; // el doble de grueso que antes (era 28–44)
         const uranoRing = new THREE.Mesh(
-            new THREE.RingGeometry(28, 44, 128),
-            new THREE.MeshStandardMaterial({ map: uranoAnilloTex, transparent: true, side: THREE.DoubleSide, roughness: 0.9, metalness: 0.1 })
+            new THREE.RingGeometry(URANO_ANILLO_IN, URANO_ANILLO_OUT, 128),
+            new THREE.MeshStandardMaterial({ map: uranoAnilloTex, transparent: true, side: THREE.DoubleSide, roughness: 0.9, metalness: 0.15 })
         );
         {
             const posAttr = uranoRing.geometry.attributes.position;
@@ -1290,7 +1296,7 @@
             for (let i = 0; i < posAttr.count; i++) {
                 const vx = posAttr.getX(i), vy = posAttr.getY(i);
                 const dist = Math.sqrt(vx * vx + vy * vy);
-                const t = (dist - 28) / (44 - 28);
+                const t = (dist - URANO_ANILLO_IN) / (URANO_ANILLO_OUT - URANO_ANILLO_IN);
                 uvAttr.setXY(i, t, 0.5);
             }
             uvAttr.needsUpdate = true;
