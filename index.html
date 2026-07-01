@@ -518,7 +518,7 @@
         // o lyrics.js (1.0 -> 1.1 -> 1.2 ...). Es el ÚNICO lugar que necesitas
         // tocar: fuerza al navegador a descargar los archivos nuevos en vez
         // de usar la copia vieja guardada en caché.
-        window.APP_VERSION = '1.2';
+        window.APP_VERSION = '1.1';
     </script>
     <script type="module">
         import * as THREE from 'three';
@@ -552,6 +552,35 @@
 
         controls.autoRotateSpeed = 1.0;
         controls.minDistance = 50; controls.maxDistance = 4000;
+
+        // ── ZOOM CON RUEDA DE MOUSE (fix cross-browser) ─────────────────────────
+        // El zoom nativo de OrbitControls usa directamente WheelEvent.deltaY,
+        // y ese número varía muchísimo entre navegadores/SO/mouses (Chrome
+        // suele reportar píxeles pequeños, pero en algunas configuraciones
+        // Firefox reporta "líneas" con un valor mucho más grande). El
+        // resultado en esas máquinas es que un solo "click" de rueda salta
+        // una distancia enorme de golpe (por ejemplo, de la vista general
+        // directo al interior del sol) en vez de acercar gradualmente.
+        //
+        // Para evitarlo interceptamos el evento de rueda ANTES de que llegue
+        // a OrbitControls (fase de "captura" en window, que siempre se
+        // ejecuta primero) y lo cancelamos con stopImmediatePropagation, y
+        // hacemos nuestro propio zoom que ignora la magnitud del delta y
+        // solo usa su signo: cada "tick" de rueda siempre acerca/aleja el
+        // mismo porcentaje fijo, sin importar navegador o dispositivo.
+        // El zoom táctil (pellizco/pinch en celular) no se toca — sigue
+        // siendo el nativo de OrbitControls (controls.enableZoom = true).
+        const ZOOM_PASO = 0.12; // 12% de acercamiento/alejamiento por cada scroll
+        window.addEventListener('wheel', (e) => {
+            if (e.target !== renderer.domElement && !renderer.domElement.contains(e.target)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const factor = e.deltaY > 0 ? (1 + ZOOM_PASO) : (1 - ZOOM_PASO);
+            const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+            const distancia = Math.max(controls.minDistance, Math.min(controls.maxDistance, offset.length() * factor));
+            offset.setLength(distancia);
+            camera.position.copy(controls.target).add(offset);
+        }, { capture: true, passive: false });
 
         // ── GESTOR DE CARGA ───────────────────────────────────────────────────────
         const pantallaInicio = document.getElementById('pantalla-inicio');
