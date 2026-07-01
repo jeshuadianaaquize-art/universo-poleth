@@ -7,13 +7,18 @@
 // "cargarCancion" se exporta porque el botón de huella (lanzarBigBang)
 // en index.html necesita arrancar la primera canción al iniciar.
 
+// ── CACHE BUSTING ────────────────────────────────────────────────────────
+// Sube este número cuando subas cambios en lyrics.js a GitHub, para que el
+// navegador lo vuelva a descargar en vez de usar la copia en caché.
+const APP_VERSION = '1.0';
+
 // Import "blindado": si lyrics.js no existe, no está en la misma
 // carpeta, o el navegador bloquea módulos (file://), el universo
 // sigue cargando igual. Las letras simplemente no funcionarán.
 let inicializarLetras = () => { };
 let letrasCancionCambiada = () => { };
 try {
-    const mod = await import('./lyrics.js');
+    const mod = await import(`./lyrics.js?v=${APP_VERSION}`);
     inicializarLetras = mod.inicializarLetras;
     letrasCancionCambiada = mod.letrasCancionCambiada;
 } catch (e) {

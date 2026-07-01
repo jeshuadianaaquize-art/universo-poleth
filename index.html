@@ -516,7 +516,12 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        import { cargarCancion } from './musica.js';
+        // ── CACHE BUSTING ────────────────────────────────────────────────────
+        // Cuando subas cambios a GitHub y no se vean reflejados, sube este
+        // número (v=1.0 -> v=1.1 -> v=1.2 ...) en la línea de abajo. Eso
+        // fuerza al navegador a descargar musica.js de nuevo en vez de usar
+        // la copia vieja guardada en caché.
+        import { cargarCancion } from './musica.js?v=1.0';
 
         // ── ESCENA THREE.JS ───────────────────────────────────────────────────────
         const scene = new THREE.Scene();
