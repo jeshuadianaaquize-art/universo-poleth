@@ -437,10 +437,15 @@ btnShuffle.addEventListener('click', () => {
     btnShuffle.classList.toggle('active', aleatorioActivo);
 
     if (aleatorioActivo) {
-        // Nuevo orden aleatorio, manteniendo la canción actual donde está sonando
-        const resto = cancionesLista.map((_, i) => i).filter(i => i !== indiceActual);
-        ordenReproduccion = [indiceActual, ...mezclarArray(resto)];
+        // Nuevo orden aleatorio completo (la canción actual también se
+        // mezcla, no se mantiene fija) y arrancamos directo con una
+        // canción al azar de ese nuevo orden.
+        ordenReproduccion = mezclarArray(cancionesLista.map((_, i) => i));
         posicionActual = 0;
+        indiceActual = ordenReproduccion[0];
+        construirListaVisual();
+        cargarCancion(0, true);
+        return;
     } else {
         // Volver al orden original (secuencial)
         ordenReproduccion = cancionesLista.map((_, i) => i);

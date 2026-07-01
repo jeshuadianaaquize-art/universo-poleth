@@ -534,9 +534,14 @@
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 8000);
         camera.position.set(0, 400, 1600);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        // Limitamos el pixelRatio a 2 como máximo: en pantallas retina/móviles
+        // modernas devicePixelRatio puede ser 3 o más, lo que multiplica por 9
+        // (3x3) la cantidad de píxeles que hay que sombrear cada frame sin
+        // aportar diferencia visual perceptible. Con 2 se ve igual de nítido
+        // pero se renderiza mucho más rápido en esos dispositivos.
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.toneMapping = THREE.ReinhardToneMapping;
         renderer.toneMappingExposure = 0.6;
         document.body.appendChild(renderer.domElement);
@@ -911,7 +916,7 @@
                 u_colCool: { value: new THREE.Vector3(...sunPaleta.cool) },
             }
         });
-        const sun = new THREE.Mesh(new THREE.SphereGeometry(50, 96, 96), sunSurfaceMat);
+        const sun = new THREE.Mesh(new THREE.SphereGeometry(50, 64, 64), sunSurfaceMat);
         scene.add(sun);
         const sunCoronaMats = [sunSurfaceMat]; // se actualiza junto con el resto en el loop de animación
 
@@ -935,10 +940,30 @@
         // ── PLANETA POLETH ────────────────────────────────────────────────────────
         const centerGroup = new THREE.Group();
         centerGroup.position.set(100, 20, 100); scene.add(centerGroup);
-        const pMat = new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta('#ff99cc', '#ff66aa', 'craters'), roughness: 0.6, metalness: 0.1, emissive: 0x330011, emissiveIntensity: 0.5 });
-        const pMesh = new THREE.Mesh(new THREE.SphereGeometry(30, 64, 64), pMat);
+        // Igual que la Tierra y Saturno: textura de imagen fija en vez de canvas
+        // procedural — se carga UNA sola vez y solo se muestrea, más liviana.
+        // Mientras 'planeta_poleth.png' descarga, se ve con un tono rosado
+        // provisional (no bloquea el arranque del resto del universo).
+        const pMat = new THREE.MeshStandardMaterial({
+            color: 0xff88bb,   // rosado provisional mientras carga la textura
+            roughness: 0.6,
+            metalness: 0.1,
+            emissive: 0x330011,
+            emissiveIntensity: 0.5
+        });
+        const pMesh = new THREE.Mesh(new THREE.SphereGeometry(30, 40, 40), pMat);
         centerGroup.add(pMesh);
         crearGlowPlaneta(pMesh, 30, '#ff77b3', 0.22);
+
+        textureLoader.load(`./imagenes/planeta_poleth.png?v=${window.APP_VERSION}`, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            pMat.map = texture;
+            pMat.color.set(0xffffff); // ya no hace falta el tinte provisional
+            pMat.needsUpdate = true;
+        }, undefined, (err) => {
+            console.warn('No se pudo cargar planeta_poleth.png (Poleth se queda con el tono rosado provisional):', err);
+        });
 
         // Anillo realista (mismo sistema de textura con bandas/divisiones que Saturno)
         // + cinturón de meteoritos orbitando, en vez de un toroide liso de un color.
@@ -960,39 +985,55 @@
         }
         ring.rotation.x = Math.PI / 2; centerGroup.add(ring);
 
+        // Cinturón de meteoritos orbitando alrededor de Poleth, además del
+        // anillo plano — partículas en 3D (no un disco uniforme).
+        //
+        // OPTIMIZACIÓN (igual que en Saturno): en vez de un THREE.Mesh
+        // independiente por roca (170 draw calls), usamos un único
+        // THREE.InstancedMesh que dibuja todas las rocas en una sola llamada
+        // a la GPU. Eso permite más rocas y más pequeñas sin costo extra.
+        const N_ROCAS_POLETH = 340; // el doble que antes, gracias al instancing
         const cinturonRocasPoleth = [];
-        const N_ROCAS_POLETH = 170;
+        const cinturonRocasPolethMat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0.05 });
+        const cinturonRocasPolethMesh = new THREE.InstancedMesh(rocaGeo, cinturonRocasPolethMat, N_ROCAS_POLETH);
+        cinturonRocasPolethMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        const rocasPolethColorArray = new Float32Array(N_ROCAS_POLETH * 3);
         for (let i = 0; i < N_ROCAS_POLETH; i++) {
             const radio = 41 + Math.random() * 20;
             const angInicial = Math.random() * Math.PI * 2;
             const inclinacion = (Math.random() - 0.5) * 0.10;
-            const tam = 0.5 + Math.random() * 1.4;
+            const tam = 0.22 + Math.random() * 0.7; // más pequeñas que antes (eran 0.5–1.9)
             const tonoGris = 0.55 + Math.random() * 0.3;
-            const mat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(tonoGris * 0.9, tonoGris * 0.75, tonoGris * 0.6),
-                roughness: 0.95, metalness: 0.05
-            });
-            const roca = new THREE.Mesh(rocaGeo, mat);
-            roca.scale.setScalar(tam);
-            roca.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
-            centerGroup.add(roca);
+            rocasPolethColorArray[i * 3 + 0] = tonoGris * 0.9;
+            rocasPolethColorArray[i * 3 + 1] = tonoGris * 0.75;
+            rocasPolethColorArray[i * 3 + 2] = tonoGris * 0.6;
             cinturonRocasPoleth.push({
-                mesh: roca, radio, ang: angInicial, inclinacion,
+                radio, ang: angInicial, inclinacion, tam,
+                rotX: Math.random() * 6.28, rotY: Math.random() * 6.28, rotZ: Math.random() * 6.28,
                 velOrbita: 0.0025 + Math.random() * 0.004,
                 velSpin: (Math.random() - 0.5) * 0.05
             });
         }
+        cinturonRocasPolethMesh.instanceColor = new THREE.InstancedBufferAttribute(rocasPolethColorArray, 3);
+        centerGroup.add(cinturonRocasPolethMesh);
+        const _dummyRocaPoleth = new THREE.Object3D();
         function actualizarCinturonRocasPoleth() {
-            cinturonRocasPoleth.forEach(r => {
+            for (let i = 0; i < N_ROCAS_POLETH; i++) {
+                const r = cinturonRocasPoleth[i];
                 r.ang += r.velOrbita;
-                r.mesh.position.set(
+                r.rotX += r.velSpin;
+                r.rotY += r.velSpin * 0.7;
+                _dummyRocaPoleth.position.set(
                     Math.cos(r.ang) * r.radio,
                     Math.sin(r.ang) * r.radio * r.inclinacion,
                     Math.sin(r.ang) * r.radio
                 );
-                r.mesh.rotation.x += r.velSpin;
-                r.mesh.rotation.y += r.velSpin * 0.7;
-            });
+                _dummyRocaPoleth.rotation.set(r.rotX, r.rotY, r.rotZ);
+                _dummyRocaPoleth.scale.setScalar(r.tam);
+                _dummyRocaPoleth.updateMatrix();
+                cinturonRocasPolethMesh.setMatrixAt(i, _dummyRocaPoleth.matrix);
+            }
+            cinturonRocasPolethMesh.instanceMatrix.needsUpdate = true;
         }
 
         // ── CARTEL ────────────────────────────────────────────────────────────────
@@ -1016,6 +1057,11 @@
             const tex = textureLoader.load(f); tex.minFilter = THREE.LinearFilter; tex.colorSpace = THREE.SRGBColorSpace;
             catMaterials.push(new THREE.SpriteMaterial({ map: tex, transparent: true, fog: true }));
         });
+        // Guardamos los gatos flotantes aquí para animarlos directamente en el
+        // loop (antes se recorrían TODOS los objetos de la escena cada frame
+        // buscando cuáles tenían userData.sp — con esto solo se recorren los
+        // 85 gatos, sin barrer el resto del universo en cada cuadro).
+        const gatosFlotantes = [];
         function generarGatosEnEscena() {
             for (let i = 0; i < 85; i++) {
                 const s = new THREE.Sprite(catMaterials[Math.floor(Math.random() * catMaterials.length)]);
@@ -1023,6 +1069,7 @@
                 const r = 200 + Math.random() * 600, t = Math.random() * 6.28, p = Math.acos(2 * Math.random() - 1);
                 s.position.set(r * Math.sin(p) * Math.cos(t), r * Math.sin(p) * Math.sin(t), r * Math.cos(p));
                 s.userData = { y: s.position.y, sp: Math.random() * 0.02 }; scene.add(s);
+                gatosFlotantes.push(s);
             }
             if (catMaterials.length > 0) { const cg = new THREE.Sprite(catMaterials[0]); cg.scale.set(40, 40, 1); cg.position.set(-25, 30, 5); centerGroup.add(cg); }
         }
@@ -1073,19 +1120,46 @@
         }
 
         function addP(radioOrbital, sz, c1, c2, t, velOrbital) {
-            const m = new THREE.Mesh(new THREE.SphereGeometry(sz, 64, 64), new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta(c1, c2, t), roughness: 0.8, metalness: 0.0, emissive: new THREE.Color(c2).multiplyScalar(0.06) }));
+            const m = new THREE.Mesh(new THREE.SphereGeometry(sz, 32, 32), new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta(c1, c2, t), roughness: 0.8, metalness: 0.0, emissive: new THREE.Color(c2).multiplyScalar(0.06) }));
             solarSystem.add(m);
             crearGlowPlaneta(m, sz, c2, 0.25);
             registrarOrbita(m, radioOrbital, velOrbital, 0.006 + Math.random() * 0.006);
             return m;
         }
 
-        // Mercurio: gris rocoso real
-        addP(180, 12, '#7a7872', '#5e5c57', 'craters', 0.003);
-        // Venus: amarillo-crema nuboso, ligeramente más grande que Mercurio
-        addP(230, 13, '#d8c79a', '#c2a868', 'gas', 0.0026);
-        // Marte: óxido rojizo natural
-        addP(280, 10, '#9c5a3c', '#b97250', 'craters', 0.0024);
+        // Igual que addP(), pero con textura de imagen fija en vez de canvas
+        // procedural (mismo enfoque que la Tierra y Saturno): se carga UNA
+        // sola vez y solo se muestrea, más liviana. Mientras la imagen
+        // descarga, el planeta ya existe y orbita con un color provisional.
+        function addPImagen(nombreImg, radioOrbital, sz, colorProvisional, colorGlow, velOrbital) {
+            const mat = new THREE.MeshStandardMaterial({
+                color: colorProvisional,
+                roughness: 0.8,
+                metalness: 0.0,
+                emissive: new THREE.Color(colorGlow).multiplyScalar(0.05)
+            });
+            const m = new THREE.Mesh(new THREE.SphereGeometry(sz, 32, 32), mat);
+            solarSystem.add(m);
+            crearGlowPlaneta(m, sz, colorGlow, 0.25);
+            registrarOrbita(m, radioOrbital, velOrbital, 0.006 + Math.random() * 0.006);
+            textureLoader.load(`./imagenes/${nombreImg}.png?v=${window.APP_VERSION}`, (texture) => {
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                mat.map = texture;
+                mat.color.set(0xffffff);
+                mat.needsUpdate = true;
+            }, undefined, (err) => {
+                console.warn(`No se pudo cargar ${nombreImg}.png (se queda con el tono provisional):`, err);
+            });
+            return m;
+        }
+
+        // Mercurio: gris rocoso real (imagen)
+        addPImagen('mercurio', 180, 12, '#7a7872', '#5e5c57', 0.003);
+        // Venus: amarillo-crema nuboso, ligeramente más grande que Mercurio (imagen)
+        addPImagen('venus', 230, 13, '#d8c79a', '#c2a868', 0.0026);
+        // Marte: óxido rojizo natural (imagen)
+        addPImagen('marte', 280, 10, '#9c5a3c', '#b97250', 0.0024);
 
         // ── TIERRA REALISTA + LUNA ──────────────────────────────────────────────
         // Esfera con textura de imagen en vez de shader procedural: mucho más
@@ -1100,7 +1174,7 @@
             roughness: 0.6,
             metalness: 0.0
         });
-        const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(28, 64, 64), earthMaterial);
+        const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(28, 40, 40), earthMaterial);
         earthMesh.layers.set(1); // capa de luz "sol real" (ver bloque de LUCES arriba)
         solarSystem.add(earthMesh);
         crearGlowPlaneta(earthMesh, 28, '#5fa8ff', 0.22);
@@ -1116,34 +1190,65 @@
             console.warn('No se pudo cargar tieramor.png (la Tierra se queda con el tono azul provisional):', err);
         });
 
-        // Textura de la Luna: gris con cráteres realistas (reutiliza el generador
-        // de planetas rocosos en tono gris ceniza)
-        function crearTexturaLuna() {
-            return crearTexturaPlaneta('#9a958d', '#6f6a62', 'craters');
-        }
-        const lunaMesh = new THREE.Mesh(
-            new THREE.SphereGeometry(7.5, 48, 48),
-            new THREE.MeshStandardMaterial({ map: crearTexturaLuna(), roughness: 0.95, metalness: 0.0, emissive: 0x1a1816, emissiveIntensity: 0.10 })
-        );
+        // Luna: igual que la Tierra, textura de imagen fija en vez de canvas
+        // procedural. Se ve gris provisional mientras carga 'luna.png'.
+        const lunaMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8a857c,
+            roughness: 0.95,
+            metalness: 0.0,
+            emissive: 0x1a1816,
+            emissiveIntensity: 0.10
+        });
+        const lunaMesh = new THREE.Mesh(new THREE.SphereGeometry(7.5, 24, 24), lunaMaterial);
         earthMesh.add(lunaMesh); // hijo de la Tierra: hereda su posición
         lunaMesh.userData = { orbitaLuna: true, radio: 52, ang: Math.random() * Math.PI * 2, vel: 0.004, spin: 0.001 };
 
-        // Júpiter: gigante gaseoso con bandas crema-marrón características
-        addP(560, 38, '#d9c39a', '#a9824a', 'gas', 0.0019);
-        // Urano: azul-cian pálido, helado
-        addP(760, 22, '#bdeef0', '#7fd0d6', 'gas', 0.0017);
-        // Neptuno: azul profundo intenso
-        addP(880, 21, '#3a5fcf', '#2843a0', 'gas', 0.0015);
-        // Plutón: pequeño y rocoso, tono hielo-marrón pálido
-        addP(960, 6, '#b8a89a', '#8f7d6e', 'craters', 0.0014);
+        textureLoader.load(`./imagenes/luna.png?v=${window.APP_VERSION}`, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            lunaMaterial.map = texture;
+            lunaMaterial.color.set(0xffffff);
+            lunaMaterial.needsUpdate = true;
+        }, undefined, (err) => {
+            console.warn('No se pudo cargar luna.png (la Luna se queda con el tono gris provisional):', err);
+        });
 
-        // ── SATURNO: anillo con bandas realistas + cinturón de rocas orbitando ────
+        // Júpiter: gigante gaseoso con bandas crema-marrón características (imagen)
+        addPImagen('jupiter', 560, 38, '#d9c39a', '#a9824a', 0.0019);
+        // Urano: azul-cian pálido, helado (imagen)
+        addPImagen('urano', 760, 22, '#bdeef0', '#7fd0d6', 0.0017);
+        // Neptuno: azul profundo intenso (imagen)
+        addPImagen('neptuno', 880, 21, '#3a5fcf', '#2843a0', 0.0015);
+        // Plutón: pequeño y rocoso, tono hielo-marrón pálido (imagen)
+        addPImagen('pluton', 960, 6, '#b8a89a', '#8f7d6e', 0.0014);
+
+        // ── SATURNO: textura de imagen (igual que la Tierra) + anillo con bandas
+        // realistas + cinturón de rocas orbitando ─────────────────────────────
         const sat = new THREE.Group(); solarSystem.add(sat);
-        // Saturno real: tono crema-dorado pálido, no oliva oscuro
-        const sm = new THREE.Mesh(new THREE.SphereGeometry(30, 64, 64), new THREE.MeshStandardMaterial({ map: crearTexturaPlaneta('#e8d9a8', '#c9b27e', 'gas'), roughness: 0.65, emissive: new THREE.Color(0xc9b27e).multiplyScalar(0.05) }));
+        // Igual que con la Tierra: esfera con textura de imagen fija en vez de
+        // canvas procedural — se carga UNA sola vez y solo se muestrea, más
+        // liviana. Mientras 'saturno.png' descarga, se ve con un tono dorado
+        // provisional (no bloquea el arranque del resto del universo).
+        const saturnMaterial = new THREE.MeshStandardMaterial({
+            color: 0xc9b27e,   // dorado provisional mientras carga la textura
+            roughness: 0.65,
+            metalness: 0.0,
+            emissive: new THREE.Color(0xc9b27e).multiplyScalar(0.05)
+        });
+        const sm = new THREE.Mesh(new THREE.SphereGeometry(30, 40, 40), saturnMaterial);
         sat.add(sm);
         crearGlowPlaneta(sm, 30, '#ecdfb0', 0.22);
         registrarOrbita(sat, 660, 0.0013, 0.007);
+
+        textureLoader.load(`./imagenes/saturno.png?v=${window.APP_VERSION}`, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            saturnMaterial.map = texture;
+            saturnMaterial.color.set(0xffffff); // ya no hace falta el tinte provisional
+            saturnMaterial.needsUpdate = true;
+        }, undefined, (err) => {
+            console.warn('No se pudo cargar saturno.png (Saturno se queda con el tono dorado provisional):', err);
+        });
 
         // Textura del anillo: bandas concéntricas con distinta densidad/brillo y
         // huecos (divisiones), como los anillos reales — no un color plano.
@@ -1193,41 +1298,57 @@
         sr.rotation.x = Math.PI / 2.2; sm.add(sr);
 
         // Cinturón de rocas/meteoritos orbitando alrededor de Saturno, además del
-        // anillo plano — partículas individuales en 3D (no un disco uniforme),
-        // cada una con su propia inclinación leve, tamaño y velocidad de giro.
+        // anillo plano — partículas en 3D (no un disco uniforme), cada una con
+        // su propia inclinación leve, tamaño y velocidad de giro.
+        //
+        // OPTIMIZACIÓN: antes cada roca era un THREE.Mesh independiente (260
+        // objetos → 260 draw calls). Ahora usamos un único THREE.InstancedMesh:
+        // la GPU dibuja TODAS las rocas en una sola llamada, sin importar
+        // cuántas sean. Eso nos permite tener muchas más rocas, y más
+        // pequeñas, sin que el rendimiento empeore (de hecho mejora respecto
+        // a la versión anterior).
+        const N_ROCAS = 520; // el doble que antes, gracias al instancing
         const cinturonRocas = [];
-        const N_ROCAS = 260;
+        const cinturonRocasMat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0.05 });
+        const cinturonRocasMesh = new THREE.InstancedMesh(rocaGeo, cinturonRocasMat, N_ROCAS);
+        cinturonRocasMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        const rocasColorArray = new Float32Array(N_ROCAS * 3);
         for (let i = 0; i < N_ROCAS; i++) {
             const radio = 42 + Math.random() * 36; // dentro del rango del anillo
             const angInicial = Math.random() * Math.PI * 2;
             const inclinacion = (Math.random() - 0.5) * 0.12; // leve variación fuera del plano
-            const tam = 0.6 + Math.random() * 1.8;
+            const tam = 0.28 + Math.random() * 0.9; // más pequeñas que antes (eran 0.6–2.4)
             const tonoGris = 0.55 + Math.random() * 0.3;
-            const mat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(tonoGris * 0.85, tonoGris * 0.78, tonoGris * 0.62),
-                roughness: 0.95, metalness: 0.05
-            });
-            const roca = new THREE.Mesh(rocaGeo, mat);
-            roca.scale.setScalar(tam);
-            roca.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
-            sm.add(roca);
+            rocasColorArray[i * 3 + 0] = tonoGris * 0.85;
+            rocasColorArray[i * 3 + 1] = tonoGris * 0.78;
+            rocasColorArray[i * 3 + 2] = tonoGris * 0.62;
             cinturonRocas.push({
-                mesh: roca, radio, ang: angInicial, inclinacion,
+                radio, ang: angInicial, inclinacion, tam,
+                rotX: Math.random() * 6.28, rotY: Math.random() * 6.28, rotZ: Math.random() * 6.28,
                 velOrbita: 0.002 + Math.random() * 0.004,
                 velSpin: (Math.random() - 0.5) * 0.05
             });
         }
+        cinturonRocasMesh.instanceColor = new THREE.InstancedBufferAttribute(rocasColorArray, 3);
+        sm.add(cinturonRocasMesh);
+        const _dummyRoca = new THREE.Object3D();
         function actualizarCinturonRocas() {
-            cinturonRocas.forEach(r => {
+            for (let i = 0; i < N_ROCAS; i++) {
+                const r = cinturonRocas[i];
                 r.ang += r.velOrbita;
-                r.mesh.position.set(
+                r.rotX += r.velSpin;
+                r.rotY += r.velSpin * 0.7;
+                _dummyRoca.position.set(
                     Math.cos(r.ang) * r.radio,
                     Math.sin(r.ang) * r.radio * r.inclinacion,
                     Math.sin(r.ang) * r.radio
                 );
-                r.mesh.rotation.x += r.velSpin;
-                r.mesh.rotation.y += r.velSpin * 0.7;
-            });
+                _dummyRoca.rotation.set(r.rotX, r.rotY, r.rotZ);
+                _dummyRoca.scale.setScalar(r.tam);
+                _dummyRoca.updateMatrix();
+                cinturonRocasMesh.setMatrixAt(i, _dummyRoca.matrix);
+            }
+            cinturonRocasMesh.instanceMatrix.needsUpdate = true;
         }
 
 
@@ -2305,7 +2426,10 @@
                 lunaMesh.position.set(Math.cos(lu.ang) * lu.radio, 0, Math.sin(lu.ang) * lu.radio);
                 lunaMesh.rotation.y += lu.spin;
             }
-            scene.children.forEach(c => { if (c.isSprite && c.userData.sp) c.position.y = c.userData.y + Math.sin(Date.now() * 0.002) * 2; });
+            for (let i = 0; i < gatosFlotantes.length; i++) {
+                const c = gatosFlotantes[i];
+                c.position.y = c.userData.y + Math.sin(Date.now() * 0.002) * 2;
+            }
             milkyWay.rotation.y += 0.00005;
             dustParticles.rotation.y += 0.00008; dustParticles.rotation.x += 0.00003;
             const tNow = (Date.now() - clockNebula.start) * 0.001;
@@ -2326,6 +2450,7 @@
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         });
     </script>
 </body>
