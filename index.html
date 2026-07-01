@@ -630,6 +630,21 @@
         const sunLight = new THREE.PointLight(0xffaa00, 1.5, 5000);
         sunLight.position.set(0, 0, 0); scene.add(sunLight);
 
+        // La Tierra vive en su propia "capa de luz" (capa 1): así solo la
+        // toca el sol real (sunLight) según hacia dónde mira cada punto de
+        // su superficie, y NO la luz ambiental general de la escena (que es
+        // la que aplana la iluminación pareja en todo lo demás). Resultado:
+        // un lado de día bien iluminado y un lado de noche oscuro, que se
+        // recorre en vivo conforme la Tierra gira sobre su propio eje —
+        // igual que en la realidad. El resto del universo (otros planetas,
+        // la Luna, estrellas) no se ve afectado, siguen con su brillo de
+        // siempre porque se quedan en la capa 0 de luz.
+        camera.layers.enable(1);
+        sunLight.layers.enable(1);
+        const earthNightGlow = new THREE.AmbientLight(0xffffff, 0.045); // un poquito de luz en el lado de noche, para que no sea negro absoluto (como el "earthshine" real)
+        earthNightGlow.layers.set(1);
+        scene.add(earthNightGlow);
+
         // ── TEXTURA PLANETA ───────────────────────────────────────────────────────
         function crearTexturaPlaneta(c1, c2, tipo) {
             const s = 512, c = document.createElement('canvas'); c.width = s; c.height = s;
@@ -1086,6 +1101,7 @@
             metalness: 0.0
         });
         const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(28, 64, 64), earthMaterial);
+        earthMesh.layers.set(1); // capa de luz "sol real" (ver bloque de LUCES arriba)
         solarSystem.add(earthMesh);
         crearGlowPlaneta(earthMesh, 28, '#5fa8ff', 0.22);
         registrarOrbita(earthMesh, 360, 0.002, 0.009);
