@@ -142,7 +142,7 @@ const cancionesData = [
     { archivo: 'musica/LISA - WHEN I\'M WITH YOU feat. Tyla.mp3', favorita: true },
     { archivo: 'musica/LISA - NEW WOMAN feat. Rosalía.mp3', favorita: true },
     { archivo: 'musica/Madison Beer - Make You Mine.mp3', favorita: true },
-    { archivo: 'Tate McRae - greedy.mp3', favorita: true },
+    { archivo: 'musica/Tate McRae - greedy.mp3', favorita: true },
 
     // ── Bruno Mars / funk-pop ─────────────────────────────────────────
     { archivo: 'musica/Bruno Mars - Just The Way You Are.mp3', favorita: true },
