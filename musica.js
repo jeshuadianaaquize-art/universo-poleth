@@ -10,8 +10,8 @@
 // Import "blindado": si lyrics.js no existe, no está en la misma
 // carpeta, o el navegador bloquea módulos (file://), el universo
 // sigue cargando igual. Las letras simplemente no funcionarán.
-let inicializarLetras = () => {};
-let letrasCancionCambiada = () => {};
+let inicializarLetras = () => { };
+let letrasCancionCambiada = () => { };
 try {
     const mod = await import('./lyrics.js');
     inicializarLetras = mod.inicializarLetras;
@@ -47,6 +47,7 @@ const cancionesData = [
     { archivo: 'musica/keshi - Soft Spot.mp3', favorita: true },
     { archivo: 'musica/Kali Uchis - telepatía.mp3', favorita: false },
     { archivo: 'musica/Kali Uchis, Peso Pluma - Igual Que Un Ángel.mp3', favorita: false },
+    { archivo: 'musica/Madison Beer - locket theme.mp3', favorita: true },
 
     // ── Indie / alternative melancólico ─────────────────────────────────
     { archivo: 'musica/The 1975 - Robbers.mp3', favorita: true },
@@ -66,6 +67,9 @@ const cancionesData = [
     { archivo: 'musica/Damiano David - Zombie Lady.mp3', favorita: true },
     { archivo: "musica/Taylor Swift - The Fate of Ophelia (Official Music Video).mp3", favorita: false },
     { archivo: 'musica/LIFETIME.mp3', favorita: false },
+    { archivo: 'musica/Madison Beer - Dangerous.mp3', favorita: true },
+    { archivo: 'musica/ROSÉ - toxic till the end.mp3', favorita: true },
+    { archivo: 'musica/ROSÉ - \'Gone\'.mp3', favorita: true },
 
     // ── Euphoria (HBO) / atmosférico ────────────────────────────────────
     { archivo: 'musica/Labrinth - Still Dont Know My Name.mp3', favorita: false },
@@ -75,6 +79,8 @@ const cancionesData = [
     { archivo: 'musica/Billie Eilish - CHIHIRO (Official Lyric Video).mp3', favorita: false },
     { archivo: 'musica/Billie Eilish - WILDFLOWER (Official Lyric Video).mp3', favorita: false },
     { archivo: 'musica/Happier Than Ever.mp3', favorita: false },
+    { archivo: 'musica/Madison Beer - bittersweet.mp3', favorita: true },
+    { archivo: 'musica/DPR IAN - Don\'t Go Insane.mp3', favorita: true },
 
     // ── R&B / pop sensual ────────────────────────────────────────────
     { archivo: "musica/Ariana Grande - better off.mp3", favorita: true },
@@ -93,6 +99,12 @@ const cancionesData = [
     { archivo: 'musica/RIDE OR DIE PT. 2 FT. TOKISCHA & VILLANO ANTILLANO (VÍDEO CON LETRAS).mp3', favorita: false },
     { archivo: 'musica/Dracula (JENNIE Remix).mp3', favorita: false },
     { archivo: 'musica/HUMBE - KINTSUGI.mp3', favorita: false },
+    { archivo: 'musica/LISA - DREAM.mp3', favorita: true },
+    { archivo: 'musica/LISA - Chill.mp3', favorita: true },
+    { archivo: 'musica/JENNIE & Dominic Fike \'Love Hangover\'.mp3', favorita: true },
+    { archivo: 'musica/JENNIE & Doechii - ExtraL.mp3', favorita: true },
+    { archivo: 'musica/Madison Beer - yes baby.mp3', favorita: true },
+    { archivo: 'musica/MARQUISE - dontneedyouanymore.mp3', favorita: true },
 
     // ── Pop / dance mainstream (sube la energía) ────────────────────────
     { archivo: 'musica/Harry Styles - Adore You.mp3', favorita: true },
@@ -118,6 +130,14 @@ const cancionesData = [
     { archivo: 'musica/LET THE WORLD BURN (Official Music Video).mp3', favorita: false },
     { archivo: "musica/Lady Gaga, Doechii - RUNWAY (Official Music Video).mp3", favorita: false },
     { archivo: "musica/Lady Gaga - Abracadabra (Official Music Video).mp3", favorita: false },
+    { archivo: 'musica/ROSÉ - \'On The Ground\'.mp3', favorita: true },
+    { archivo: 'musica/Camila Cabello - My Oh My.mp3', favorita: true },
+    { archivo: 'musica/LISA - MOONLIT FLOOR (Official Performance Video).mp3', favorita: true },
+    { archivo: 'musica/JENNIE - You & Me DANCE PERFORMANCE VIDEO.mp3', favorita: true },
+    { archivo: 'musica/LISA - WHEN I\'M WITH YOU feat. Tyla.mp3', favorita: true },
+    { archivo: 'musica/LISA - NEW WOMAN feat. Rosalía.mp3', favorita: true },
+    { archivo: 'musica/Madison Beer - Make You Mine.mp3', favorita: true },
+    { archivo: 'Tate McRae - greedy.mp3', favorita: true },
 
     // ── Bruno Mars / funk-pop ─────────────────────────────────────────
     { archivo: 'musica/Bruno Mars - Just The Way You Are.mp3', favorita: true },
