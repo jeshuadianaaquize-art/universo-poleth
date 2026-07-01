@@ -614,7 +614,7 @@
 
             let t = 0;
             const startZ = camera.position.z;
-            const targetZ = 800;
+            const targetZ = 1050; // antes 800: un poco más lejos, cerca de la nebulosa lila
             const camAnim = setInterval(() => {
                 t += 0.02;
                 camera.position.z = startZ + (targetZ - startZ) * (1 - Math.exp(-t * 2));
