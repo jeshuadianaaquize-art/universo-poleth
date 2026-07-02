@@ -534,14 +534,20 @@
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 8000);
         camera.position.set(0, 400, 1600);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        // Detectamos dispositivos táctiles/celulares para bajar un poco el
+        // costo por-píxel SOLO ahí — en desktop no cambia nada.
+        // El antialiasing (suavizado de bordes) es uno de los gastos más
+        // grandes de la GPU en cada frame, y en pantallas de celular la
+        // densidad de píxeles ya es tan alta que casi no se nota su
+        // ausencia a simple vista, pero se libera bastante rendimiento.
+        const esMovil = window.matchMedia('(pointer: coarse)').matches;
+        const renderer = new THREE.WebGLRenderer({ antialias: !esMovil, powerPreference: 'high-performance' });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // Limitamos el pixelRatio a 2 como máximo: en pantallas retina/móviles
-        // modernas devicePixelRatio puede ser 3 o más, lo que multiplica por 9
-        // (3x3) la cantidad de píxeles que hay que sombrear cada frame sin
-        // aportar diferencia visual perceptible. Con 2 se ve igual de nítido
-        // pero se renderiza mucho más rápido en esos dispositivos.
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // Limitamos el pixelRatio (2 en desktop, 1.5 en celular): en
+        // pantallas retina/móviles modernas devicePixelRatio puede ser 3 o
+        // más, lo que multiplica por 9 (3x3) la cantidad de píxeles que hay
+        // que sombrear cada frame sin aportar diferencia visual perceptible.
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, esMovil ? 1.5 : 2));
         renderer.toneMapping = THREE.ReinhardToneMapping;
         renderer.toneMappingExposure = 0.6;
         document.body.appendChild(renderer.domElement);
@@ -2392,6 +2398,41 @@
         [[-1200, 300, -800, 280, 60], [900, -400, 1100, 220, 50], [600, 800, -900, 180, 45], [-700, -600, 700, 240, 55], [1400, 200, 300, 160, 40]].forEach(p => scene.add(crearCumulo(...p)));
 
         // ── METEORITOS REALISTAS ──────────────────────────────────────────────
+        // Antes el "núcleo" era un THREE.Points cuadrado sin textura (se veía
+        // como un pixel/cuadradito) y la cola un THREE.Line delgada — en
+        // varios navegadores/GPUs las líneas se dibujan de 1px sin importar
+        // el grosor pedido, así que casi no se notaban.
+        //
+        // Ahora el núcleo es un sprite con un glow radial (textura generada
+        // una sola vez y REUTILIZADA en todos los meteoritos) y la cola es
+        // un plano alargado con un degradado de brillo → transparente. Se ve
+        // como una bola de fuego con estela real, y como las texturas se
+        // comparten entre todos los meteoritos, el costo es el mismo que
+        // antes (no se crea nada nuevo en cada aparición, solo se reutiliza).
+        function crearTexturaGlowMeteorito() {
+            const s = 64, c = document.createElement('canvas'); c.width = s; c.height = s;
+            const x = c.getContext('2d');
+            const g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+            g.addColorStop(0, 'rgba(255,255,240,1)');
+            g.addColorStop(0.25, 'rgba(255,220,150,0.9)');
+            g.addColorStop(0.6, 'rgba(255,140,60,0.35)');
+            g.addColorStop(1, 'rgba(255,100,40,0)');
+            x.fillStyle = g; x.fillRect(0, 0, s, s);
+            return new THREE.CanvasTexture(c);
+        }
+        function crearTexturaEstelaMeteorito() {
+            const w = 128, h = 8, c = document.createElement('canvas'); c.width = w; c.height = h;
+            const x = c.getContext('2d');
+            const g = x.createLinearGradient(0, 0, w, 0);
+            g.addColorStop(0, 'rgba(255,235,200,0)');
+            g.addColorStop(0.85, 'rgba(255,190,110,0.5)');
+            g.addColorStop(1, 'rgba(255,255,255,0.95)');
+            x.fillStyle = g; x.fillRect(0, 0, w, h);
+            return new THREE.CanvasTexture(c);
+        }
+        const meteoritoGlowTex = crearTexturaGlowMeteorito();
+        const meteoritoEstelaTex = crearTexturaEstelaMeteorito();
+
         function crearMeteorito() {
             const radio = 700 + Math.random() * 1000, theta = Math.random() * Math.PI * 2, phi = Math.acos(2 * Math.random() - 1) * 0.6;
             const sx = radio * Math.sin(phi) * Math.cos(theta), sy = 300 + Math.random() * 500, sz = radio * Math.sin(phi) * Math.sin(theta);
@@ -2400,35 +2441,28 @@
             const speed = 5 + Math.random() * 10;
             const size = 1.2 + Math.random() * 2.8;
 
-            // Núcleo del meteorito (roca brillante)
-            const coreGeo = new THREE.BufferGeometry();
-            const verts = new Float32Array([-5, -5, -5, 5, 5, 5]);
-            coreGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-            const coreMat = new THREE.PointsMaterial({
-                color: 0xffaa44, size: size * 6, transparent: true, opacity: 0.85,
-                blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+            // Núcleo: bola de fuego brillante (sprite con glow radial)
+            const coreMat = new THREE.SpriteMaterial({
+                map: meteoritoGlowTex, transparent: true, opacity: 0.95,
+                blending: THREE.AdditiveBlending, depthWrite: false
             });
-            const core = new THREE.Points(coreGeo, coreMat);
+            const core = new THREE.Sprite(coreMat);
+            core.scale.setScalar(size * 10);
 
-            // Cola de fuego (estela)
-            const tailGeo = new THREE.BufferGeometry();
-            const tailLen = 80 + Math.random() * 180;
-            const tailPos = new Float32Array((12) * 3);
-            for (let s = 0; s < 12; s++) {
-                tailPos[s * 3] = -(s * tailLen / 12);
-                tailPos[s * 3 + 1] = (Math.random() - 0.5) * 3;
-                tailPos[s * 3 + 2] = (Math.random() - 0.5) * 3;
-            }
-            tailGeo.setAttribute('position', new THREE.BufferAttribute(tailPos, 3));
-            const tailMat = new THREE.LineBasicMaterial({
-                color: 0xff7722, transparent: true, opacity: 0.6,
-                blending: THREE.AdditiveBlending, depthWrite: false, linewidth: 2
+            // Cola de fuego: quad alargado con degradado, apuntando hacia
+            // atrás en la dirección de vuelo
+            const tailLen = 90 + Math.random() * 200;
+            const tailGeo = new THREE.PlaneGeometry(tailLen, size * 3.5);
+            tailGeo.translate(-tailLen / 2, 0, 0);
+            const tailMat = new THREE.MeshBasicMaterial({
+                map: meteoritoEstelaTex, transparent: true, opacity: 0.75,
+                blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
             });
-            const tail = new THREE.Line(tailGeo, tailMat);
+            const tail = new THREE.Mesh(tailGeo, tailMat);
 
             const group = new THREE.Group();
-            group.add(core);
             group.add(tail);
+            group.add(core);
             group.position.set(sx, sy, sz);
             const dir = new THREE.Vector3(dx / dl, dy / dl, dz / dl);
             group.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir);
@@ -2454,10 +2488,13 @@
                 else alpha = 1.0 - (t - 0.8) / 0.2;
                 alpha = Math.max(0, alpha);
                 m.core.material.opacity = alpha * 0.95;
-                m.tail.material.opacity = alpha * 0.55;
+                m.tail.material.opacity = alpha * 0.7;
                 if (m.life >= m.maxLife) {
                     scene.remove(m.group);
-                    m.core.geometry.dispose();
+                    // Ojo: el Sprite del núcleo usa la geometría interna
+                    // compartida de THREE.Sprite — NO se dispone (borrarla
+                    // rompería todos los demás sprites de la escena). Solo
+                    // se dispone su material, que sí es propio de esta instancia.
                     m.core.material.dispose();
                     m.tail.geometry.dispose();
                     m.tail.material.dispose();
@@ -2539,7 +2576,7 @@
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, esMovil ? 1.5 : 2));
         });
     </script>
 </body>
