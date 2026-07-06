@@ -52,7 +52,6 @@ const cancionesData = [
     { archivo: 'musica/keshi - Soft Spot.mp3', favorita: true },
     { archivo: 'musica/Kali Uchis - telepatía.mp3', favorita: false },
     { archivo: 'musica/Kali Uchis, Peso Pluma - Igual Que Un Ángel.mp3', favorita: false },
-    { archivo: 'musica/Madison Beer - locket theme.mp3', favorita: true },
 
     // ── Indie / alternative melancólico ─────────────────────────────────
     { archivo: 'musica/The 1975 - Robbers.mp3', favorita: true },
@@ -72,7 +71,6 @@ const cancionesData = [
     { archivo: 'musica/Damiano David - Zombie Lady.mp3', favorita: true },
     { archivo: "musica/Taylor Swift - The Fate of Ophelia (Official Music Video).mp3", favorita: false },
     { archivo: 'musica/LIFETIME.mp3', favorita: false },
-    { archivo: 'musica/Madison Beer - Dangerous.mp3', favorita: true },
     { archivo: 'musica/ROSÉ - toxic till the end.mp3', favorita: true },
     { archivo: 'musica/ROSÉ - \'Gone\'.mp3', favorita: true },
 
@@ -95,7 +93,7 @@ const cancionesData = [
     { archivo: 'musica/Ariana Grande - pov.mp3', favorita: true },
     { archivo: "musica/Ariana Grande - no tears left to cry (Official Video).mp3", favorita: false },
     { archivo: "musica/Ariana Grande - we can't be friends (wait for your love) (official music video).mp3", favorita: false },
-    { archivo: 'musica/Ariana Grande - hate that i made you love me (official music video).mp3', favorita: false },
+    { archivo: 'musica/Ariana Grande - hate that i made you love me.mp3', favorita: false },
     { archivo: 'musica/The Weeknd, Ariana Grande - Die For You.mp3', favorita: true },
     { archivo: 'musica/The Weeknd, JENNIE & Lily Rose Depp - One Of The Girls (Official Audio).mp3', favorita: false },
     { archivo: 'musica/Doja Cat, The Weeknd - You Right (Official Video).mp3', favorita: false },
@@ -107,8 +105,6 @@ const cancionesData = [
     { archivo: 'musica/LISA - DREAM.mp3', favorita: true },
     { archivo: 'musica/LISA - Chill.mp3', favorita: true },
     { archivo: 'musica/JENNIE & Dominic Fike \'Love Hangover\'.mp3', favorita: true },
-    { archivo: 'musica/JENNIE & Doechii - ExtraL.mp3', favorita: true },
-    { archivo: 'musica/Madison Beer - yes baby.mp3', favorita: true },
     { archivo: 'musica/MARQUISE - dontneedyouanymore.mp3', favorita: true },
 
     // ── Pop / dance mainstream (sube la energía) ────────────────────────
@@ -130,7 +126,6 @@ const cancionesData = [
     { archivo: 'musica/5 Seconds of Summer - Youngblood (Alt Version).mp3', favorita: false },
     { archivo: 'musica/5 Seconds of Summer - Teeth (Official Video).mp3', favorita: false },
     { archivo: 'musica/The Wanted - Glad You Came.mp3', favorita: false },
-    { archivo: 'musica/Austin Mahone - Mmm Yeah ft. Pitbull.mp3', favorita: false },
     { archivo: 'musica/DNCE - Cake By The Ocean.mp3', favorita: false },
     { archivo: 'musica/LET THE WORLD BURN (Official Music Video).mp3', favorita: false },
     { archivo: "musica/Lady Gaga, Doechii - RUNWAY (Official Music Video).mp3", favorita: false },
@@ -138,9 +133,7 @@ const cancionesData = [
     { archivo: 'musica/ROSÉ - \'On The Ground\'.mp3', favorita: true },
     { archivo: 'musica/Camila Cabello - My Oh My.mp3', favorita: true },
     { archivo: 'musica/LISA - MOONLIT FLOOR (Official Performance Video).mp3', favorita: true },
-    { archivo: 'musica/JENNIE - You & Me DANCE PERFORMANCE VIDEO.mp3', favorita: true },
     { archivo: 'musica/LISA - WHEN I\'M WITH YOU feat. Tyla.mp3', favorita: true },
-    { archivo: 'musica/LISA - NEW WOMAN feat. Rosalía.mp3', favorita: true },
     { archivo: 'musica/Madison Beer - Make You Mine.mp3', favorita: true },
     { archivo: 'musica/Tate McRae - greedy.mp3', favorita: true },
 
@@ -170,6 +163,36 @@ const cancionesData = [
     { archivo: "musica/Michael Jackson - Don't Stop 'Til You Get Enough (Official Video - Upscaled).mp3", favorita: false },
     { archivo: 'musica/Beat It.mp3', favorita: false },
     { archivo: 'musica/You Rock My World (Radio Edit).mp3', favorita: false },
+    { archivo: 'musica/Foreigner - I Want To Know What Love Is.mp3', favorita: false },
+    { archivo: 'musica/Desireless - Voyage Voyage.mp3', favorita: false },
+    { archivo: "musica/I'm Gonna Give My Heart.mp3", favorita: false },
+    { archivo: 'musica/Sweet Dreams (Are Made of This).mp3', favorita: false },
+    { archivo: 'musica/Big in Japan.mp3', favorita: false },
+    { archivo: 'musica/Run to Me.mp3', favorita: false },
+    { archivo: 'musica/Brother Louie.mp3', favorita: false },
+    { archivo: 'musica/Self Control.mp3', favorita: false },
+    { archivo: 'musica/Be My Lover.mp3', favorita: false },
+    { archivo: "musica/You're My Heart, You're My Soul.mp3", favorita: false },
+    { archivo: "musica/[I'll Never Be] Maria Magdalena.mp3", favorita: false },
+    { archivo: 'musica/Cause You Are Young.mp3', favorita: false },
+    { archivo: 'musica/C. C. Catch - Strangers By Night.mp3', favorita: false },
+    { archivo: 'musica/Touch By Touch (12 Version).mp3', favorita: false },
+    { archivo: 'musica/Yesterday (Remastered 2009).mp3', favorita: false },
+    { archivo: 'musica/Every Breath You Take.mp3', favorita: false },
+    { archivo: 'musica/Michael Sembello - Maniac.mp3', favorita: false },
+    { archivo: 'musica/Joy - Touch By Touch.mp3', favorita: false },
+    { archivo: 'musica/Bad Boys Blue - Heart Beat - I Wanna Hear Your Heartbeat (Sunday Girl).mp3', favorita: false },
+    { archivo: 'musica/Part-Time Lover.mp3', favorita: false },
+
+    // ── Recién agregadas (pop actual) ────────────────────────────────
+    { archivo: "musica/Demi Lovato - Really Don't Care ft. Cher Lloyd.mp3", favorita: false },
+    { archivo: 'musica/Rihanna - Stay ft. Mikky Ekko.mp3', favorita: false },
+    { archivo: "musica/Camila Cabello - Don't Go Yet.mp3", favorita: false },
+    { archivo: 'musica/Taylor Swift - Wildest Dreams.mp3', favorita: false },
+    { archivo: "musica/Alizée - J'en ai marre !.mp3", favorita: false },
+    { archivo: 'musica/Alizée - La Isla Bonita.mp3', favorita: false },
+    { archivo: 'musica/Alizee - Moi Lolita - live (HQ).mp3', favorita: false },
+    { archivo: 'musica/Aaliyah -Try Again.mp3', favorita: false },
 ];
 
 // Lista plana de rutas (se mantiene por compatibilidad con el resto del código)
