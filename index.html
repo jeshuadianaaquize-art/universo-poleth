@@ -559,6 +559,13 @@
         controls.autoRotateSpeed = 1.0;
         controls.minDistance = 50; controls.maxDistance = 4000;
 
+        // ── PORTALES A LOS PLANETAS (zoom + video al hacer click) ───────────────
+        // Toda la lógica vive en planetas.js — aquí solo se crea y, más abajo
+        // (justo después de definir cada planeta), se registra cuál mesh
+        // corresponde a qué video.
+        const { crearPortalesPlanetas } = await import(`./planetas.js?v=${window.APP_VERSION}`);
+        const portales = crearPortalesPlanetas({ THREE, camera, controls, renderer });
+
         // ── ZOOM CON RUEDA DE MOUSE (fix cross-browser) ─────────────────────────
         // El zoom nativo de OrbitControls usa directamente WheelEvent.deltaY,
         // y ese número varía muchísimo entre navegadores/SO/mouses (Chrome
@@ -989,6 +996,7 @@
         const pMesh = new THREE.Mesh(new THREE.SphereGeometry(30, 40, 40), pMat);
         centerGroup.add(pMesh);
         crearGlowPlaneta(pMesh, 30, '#ff77b3', 0.22);
+        portales.registrarPlaneta({ mesh: pMesh, nombre: 'Planeta Poleth 🐱💗', radio: 30, video: `./videos/poleth.mp4?v=${window.APP_VERSION}` });
 
         textureLoader.load(`./imagenes/planeta_poleth.png?v=${window.APP_VERSION}`, (texture) => {
             texture.colorSpace = THREE.SRGBColorSpace;
@@ -1214,6 +1222,7 @@
         solarSystem.add(earthMesh);
         crearGlowPlaneta(earthMesh, 28, '#5fa8ff', 0.22);
         registrarOrbita(earthMesh, 345, 0.002, 0.009);
+        portales.registrarPlaneta({ mesh: earthMesh, nombre: 'Tierra', radio: 28, video: `./videos/tierra.mp4?v=${window.APP_VERSION}` });
 
         textureLoader.load(`./imagenes/tieramor.png?v=${window.APP_VERSION}`, (texture) => {
             texture.colorSpace = THREE.SRGBColorSpace;
@@ -2569,6 +2578,7 @@
             actualizarFugaces(frame);
             actualizarCinturonRocas();
             actualizarCinturonRocasPoleth();
+            portales.actualizar();
             renderer.render(scene, camera);
         }
         animate();
