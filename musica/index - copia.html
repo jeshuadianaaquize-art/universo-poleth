@@ -1251,7 +1251,7 @@
         const catMaterials = [];
         [
             'imagenes/gato1.png', 'imagenes/gato2.png', 'imagenes/gato3.png', 'imagenes/gato4.png',
-            'imagenes/gato5.png', 'imagenes/gato6.png', 'imagenes/gato7.png', 'imagenes/gato8.png'
+            'imagenes/gato5.png', 'imagenes/gato6.png', 'imagenes/gato7.png', 'imagenes/misha.png'
         ].forEach(f => {
             const tex = textureLoader.load(f); tex.minFilter = THREE.LinearFilter; tex.colorSpace = THREE.SRGBColorSpace;
             catMaterials.push(new THREE.SpriteMaterial({ map: tex, transparent: true, fog: true }));
