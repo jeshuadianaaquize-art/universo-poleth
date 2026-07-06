@@ -68,6 +68,19 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
             50% { transform: scale(1.6); opacity: 0.5; }
         }
 
+        /* ── VERSIÓN MÓVIL: cartel más chico ── */
+        @media (pointer: coarse), (max-width: 768px) {
+            #portal-hint {
+                padding: 3px 9px;
+                font-size: 0.58rem;
+                letter-spacing: 0.3px;
+            }
+            #portal-hint .punto {
+                width: 4px; height: 4px;
+                margin-right: 4px;
+            }
+        }
+
         #portal-flash {
             position: fixed; inset: 0;
             background: radial-gradient(ellipse at center, #ffffff 0%, #bfefff 35%, #003a55 100%);
