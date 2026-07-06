@@ -33,6 +33,7 @@ try {
 const cancionesData = [
 
     // ── Pop romántico / soft pop (apertura suave) ──────────────────────
+    { archivo: 'musica/Ariana Grande - hate that i made you love me.mp3', favorita: false },
     { archivo: 'musica/RAYE - WHERE IS MY HUSBAND!.mp3', favorita: true },
     { archivo: 'musica/Ed Sheeran - Give Me Love.mp3', favorita: true },
     { archivo: "musica/Ali Gatie - It's You.mp3", favorita: true },
@@ -93,7 +94,6 @@ const cancionesData = [
     { archivo: 'musica/Ariana Grande - pov.mp3', favorita: true },
     { archivo: "musica/Ariana Grande - no tears left to cry (Official Video).mp3", favorita: false },
     { archivo: "musica/Ariana Grande - we can't be friends (wait for your love) (official music video).mp3", favorita: false },
-    { archivo: 'musica/Ariana Grande - hate that i made you love me.mp3', favorita: false },
     { archivo: 'musica/The Weeknd, Ariana Grande - Die For You.mp3', favorita: true },
     { archivo: 'musica/The Weeknd, JENNIE & Lily Rose Depp - One Of The Girls (Official Audio).mp3', favorita: false },
     { archivo: 'musica/Doja Cat, The Weeknd - You Right (Official Video).mp3', favorita: false },
@@ -185,6 +185,11 @@ const cancionesData = [
     { archivo: 'musica/Part-Time Lover.mp3', favorita: false },
 
     // ── Recién agregadas (pop actual) ────────────────────────────────
+    { archivo: "musica/Rockwell - Somebody's Watching Me.mp3", favorita: false },
+    { archivo: "musica/Knife.mp3", favorita: false },
+    { archivo: "musica/Jackson 5 - I'll Be There.mp3", favorita: false },
+    { archivo: "musica/Jermaine Jackson, Pia Zadora - When the Rain Begins to Fall.mp3", favorita: false },
+    { archivo: "musica/Madonna - Papa Don't Preach.mp3", favorita: false },
     { archivo: "musica/Demi Lovato - Really Don't Care ft. Cher Lloyd.mp3", favorita: false },
     { archivo: 'musica/Rihanna - Stay ft. Mikky Ekko.mp3', favorita: false },
     { archivo: "musica/Camila Cabello - Don't Go Yet.mp3", favorita: false },
