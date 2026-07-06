@@ -121,11 +121,36 @@ function crearDOM() {
             color: #aef6ff;
         }
 
-        /* En pantallas pequeñas, deja aire respecto al borde superior */
+        /* En pantallas pequeñas, deja aire respecto al borde superior y
+           usa letras más chicas para no saturar el centro de la pantalla. */
         @media (max-width: 480px) {
             #lyrics-layer { top: 24px; padding: 0 16px; }
-            #lyrics-actual { font-size: 1.2rem; }
-            #lyrics-anterior, #lyrics-siguiente { font-size: 0.8rem; }
+            #lyrics-actual { font-size: 1.05rem; }
+            #lyrics-anterior, #lyrics-siguiente { font-size: 0.72rem; }
+        }
+
+        /* ── Solo cuando estamos DENTRO de un planeta (Tierra/Poleth) ──
+           planetas.js le agrega la clase "portal-planeta-abierto" al
+           <body> mientras el video está abierto. En ese momento arriba
+           del todo está el botón "Volver al universo", así que la letra
+           baja justo debajo de él. Al salir del planeta, la clase se
+           quita y las letras vuelven solas a su posición normal (arriba). */
+        body.portal-planeta-abierto #lyrics-layer {
+            top: 46px;
+        }
+        @media (pointer: coarse), (max-width: 768px) {
+            body.portal-planeta-abierto #lyrics-layer {
+                top: 34px;
+            }
+        }
+
+        /* Dentro de un planeta (Tierra/Poleth) ocupamos menos espacio:
+           solo se muestra la línea ACTUAL (la que brilla en blanco/azul),
+           sin la línea anterior ni la siguiente. Fuera del planeta (en
+           el universo normal) todo sigue exactamente igual que antes. */
+        body.portal-planeta-abierto #lyrics-anterior,
+        body.portal-planeta-abierto #lyrics-siguiente {
+            display: none;
         }
     `;
     document.head.appendChild(estilo);

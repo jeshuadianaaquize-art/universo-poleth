@@ -108,39 +108,37 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
             max-width: 80%;
             display: none;
         }
-        #portal-video-overlay .portal-titulo {
-            position: absolute;
-            top: 28px; left: 50%;
-            transform: translateX(-50%);
-            color: #eafcff;
-            font-family: 'Segoe UI', sans-serif;
-            letter-spacing: 4px;
-            font-size: 1rem;
-            text-transform: uppercase;
-            text-shadow: 0 0 12px rgba(0, 229, 255, 0.8);
-            opacity: 0.85;
-        }
         #portal-cerrar-btn {
             position: absolute;
-            /* Antes estaba abajo (bottom: 34px) y quedaba TAPADO por el
-               #music-bar (que tiene z-index más alto y vive pegado abajo)
-               — por eso "no aparecía". Ahora va arriba, lejos de esa zona. */
-            top: 66px;
+            /* Pegado del todo arriba y chico: solo queda este botón (se
+               quitó el título "Tierra/Poleth") para no saturar la parte
+               de arriba, donde también viven las letras de la canción. */
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 10px 22px;
+            padding: 6px 16px;
             border-radius: 30px;
             border: 1px solid rgba(0, 229, 255, 0.7);
             background: rgba(0, 10, 20, 0.55);
             color: #d8f9ff;
             font-family: 'Segoe UI', sans-serif;
-            font-size: 0.85rem;
-            letter-spacing: 2px;
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
             cursor: pointer;
             backdrop-filter: blur(3px);
         }
         #portal-cerrar-btn:hover {
             background: rgba(0, 229, 255, 0.2);
+        }
+
+        /* ── VERSIÓN MÓVIL: botón todavía más chico ── */
+        @media (pointer: coarse), (max-width: 768px) {
+            #portal-cerrar-btn {
+                top: 8px;
+                padding: 4px 12px;
+                font-size: 0.62rem;
+                letter-spacing: 1px;
+            }
         }
     `;
     document.head.appendChild(estilo);
@@ -159,14 +157,12 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
     const videoOverlayEl = document.createElement('div');
     videoOverlayEl.id = 'portal-video-overlay';
     videoOverlayEl.innerHTML = `
-        <div class="portal-titulo" id="portal-titulo-texto"></div>
         <video id="portal-video" playsinline muted preload="auto"></video>
         <div class="portal-error" id="portal-error-texto"></div>
         <button id="portal-cerrar-btn">✕ Volver al universo</button>
     `;
     document.body.appendChild(videoOverlayEl);
     const videoEl = videoOverlayEl.querySelector('#portal-video');
-    const tituloEl = videoOverlayEl.querySelector('#portal-titulo-texto');
     const errorEl = videoOverlayEl.querySelector('#portal-error-texto');
     const cerrarBtn = videoOverlayEl.querySelector('#portal-cerrar-btn');
 
@@ -344,10 +340,13 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
         setTimeout(() => {
             // Fase 2: mientras la pantalla sigue blanca, mostramos el video
             // (que ya lleva un par de segundos precargando desde el click).
-            tituloEl.textContent = target.nombre;
             videoEl.currentTime = 0;
             videoEl.loop = true;
             videoOverlayEl.style.display = 'flex';
+            // Avisa al módulo de letras (lyrics.js) que estamos dentro de
+            // un planeta, para que baje su posición y no choque con el
+            // botón de "Volver al universo" de aquí arriba.
+            document.body.classList.add('portal-planeta-abierto');
             videoEl.play().catch((err) => {
                 console.error('[portal-video] play() rechazado', err);
             });
@@ -382,6 +381,7 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
         enTransicion = true;
 
         videoOverlayEl.style.opacity = '0';
+        document.body.classList.remove('portal-planeta-abierto');
         setTimeout(() => {
             videoEl.pause();
             videoEl.removeAttribute('src');

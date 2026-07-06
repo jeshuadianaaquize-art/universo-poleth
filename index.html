@@ -300,6 +300,30 @@
             border-color: rgba(255,105,180,0.7);
         }
 
+        /* ── VERSIÓN MÓVIL: panel de música un poco más bajo ──
+           Solo se reduce el "alto" (paddings, separaciones y tamaño de
+           los botones un poco), sin quitar ningún botón ni cambiar la
+           estética general — mismo look, un poco más compacto. */
+        @media (pointer: coarse), (max-width: 768px) {
+            #music-bar {
+                gap: 8px;
+                padding: 12px 18px 10px;
+            }
+            #waveform-bar {
+                height: 24px;
+            }
+            .mc-btn {
+                width: 38px;
+                height: 38px;
+                font-size: 1.05rem;
+            }
+            #btn-play {
+                width: 46px;
+                height: 46px;
+                font-size: 1.3rem;
+            }
+        }
+
         /* ── LISTA DE CANCIONES (estilo Spotify, tema universo) ── */
         #btn-list.active {
             background: rgba(255,20,147,0.35);
@@ -489,7 +513,7 @@
         </div>
         <div id="music-controls">
             <button class="mc-btn" id="btn-prev">⏮</button>
-            <button class="mc-btn" id="btn-play">▶</button>
+            <button class="mc-btn" id="btn-play">▶︎</button>
             <button class="mc-btn" id="btn-next">⏭</button>
             <button class="mc-btn" id="btn-shuffle" title="Aleatorio">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -996,7 +1020,7 @@
         const pMesh = new THREE.Mesh(new THREE.SphereGeometry(30, 40, 40), pMat);
         centerGroup.add(pMesh);
         crearGlowPlaneta(pMesh, 30, '#ff77b3', 0.22);
-        portales.registrarPlaneta({ mesh: pMesh, nombre: 'Planeta Poleth 🐱💗', radio: 30, video: `./videos/poleth.mp4?v=${window.APP_VERSION}` });
+        portales.registrarPlaneta({ mesh: pMesh, nombre: 'Planeta Poleth 🐱💗', radio: 30, video: `./videos/${esMovil ? 'poleth-cel.mp4' : 'poleth.mp4'}?v=${window.APP_VERSION}` });
 
         textureLoader.load(`./imagenes/planeta_poleth.png?v=${window.APP_VERSION}`, (texture) => {
             texture.colorSpace = THREE.SRGBColorSpace;
@@ -1222,7 +1246,7 @@
         solarSystem.add(earthMesh);
         crearGlowPlaneta(earthMesh, 28, '#5fa8ff', 0.22);
         registrarOrbita(earthMesh, 345, 0.002, 0.009);
-        portales.registrarPlaneta({ mesh: earthMesh, nombre: 'Tierra', radio: 28, video: `./videos/tierra.mp4?v=${window.APP_VERSION}` });
+        portales.registrarPlaneta({ mesh: earthMesh, nombre: 'Tierra', radio: 28, video: `./videos/${esMovil ? 'tierra-cel.mp4' : 'tierra.mp4'}?v=${window.APP_VERSION}` });
 
         textureLoader.load(`./imagenes/tieramor.png?v=${window.APP_VERSION}`, (texture) => {
             texture.colorSpace = THREE.SRGBColorSpace;

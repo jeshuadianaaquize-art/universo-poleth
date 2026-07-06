@@ -433,7 +433,7 @@ function cargarCancion(paso, autoplay) {
         asegurarAudioContext();
         audio.play().catch(() => { });
         reproduciendo = true;
-        btnPlay.textContent = '⏸';
+        btnPlay.textContent = '⏸︎';
     }
     actualizarResaltadoLista();
     letrasCancionCambiada(nombreLimpio);
@@ -453,8 +453,8 @@ audio.addEventListener('loadedmetadata', () => {
 audio.addEventListener('ended', () => cargarCancion(1, true));
 
 btnPlay.addEventListener('click', () => {
-    if (reproduciendo) { audio.pause(); reproduciendo = false; btnPlay.textContent = '▶'; }
-    else { asegurarAudioContext(); audio.play().catch(() => { }); reproduciendo = true; btnPlay.textContent = '⏸'; }
+    if (reproduciendo) { audio.pause(); reproduciendo = false; btnPlay.textContent = '▶︎'; }
+    else { asegurarAudioContext(); audio.play().catch(() => { }); reproduciendo = true; btnPlay.textContent = '⏸︎'; }
 });
 document.getElementById('btn-next').addEventListener('click', () => cargarCancion(1, reproduciendo));
 document.getElementById('btn-prev').addEventListener('click', () => cargarCancion(-1, reproduciendo));
