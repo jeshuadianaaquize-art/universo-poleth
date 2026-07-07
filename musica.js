@@ -148,7 +148,7 @@ const cancionesData = [
     { archivo: 'musica/Big Time Rush - Confetti Falling (Official Video).mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - City Is Ours (Official Video).mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - Big Night (Official Video).mp3', favorita: false },
-    { archivo: 'musica/Big Time Rush - Til I Forget About You Español.mp3', favorita: false },
+    { archivo: 'musica/Big Time Rush - Til I Forget About You.mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - Any Kind of Guy (Official Video).mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - Music Sounds Better (Official Video) ft. Mann.mp3', favorita: false },
     { archivo: 'musica/Big Time Rush - Worldwide (Video).mp3', favorita: false },

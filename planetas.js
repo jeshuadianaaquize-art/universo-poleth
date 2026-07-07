@@ -396,9 +396,18 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
         videoOverlayEl.style.opacity = '0';
         document.body.classList.remove('portal-planeta-abierto');
         setTimeout(() => {
+            // Antes acá se hacía videoEl.removeAttribute('src') + load(),
+            // lo que borraba TODO lo ya descargado/decodificado del video.
+            // Resultado: si volvías a entrar al mismo planeta, el navegador
+            // tenía que descargar y decodificar el video otra vez desde
+            // cero (de ahí los tirones/lag). Ahora solo lo pausamos y lo
+            // ocultamos, pero el <video> se queda con su "src" y su buffer
+            // intactos. Si el usuario vuelve a este mismo planeta más
+            // tarde, activarPortal() detecta que el src no cambió y no
+            // vuelve a cargar nada: el video ya está listo y arranca al
+            // toque. Solo se recarga de verdad cuando se entra a un
+            // planeta CON UN VIDEO DISTINTO (ver el if en activarPortal).
             videoEl.pause();
-            videoEl.removeAttribute('src');
-            videoEl.load();
             videoOverlayEl.style.display = 'none';
             errorEl.style.display = 'none';
         }, 700);
