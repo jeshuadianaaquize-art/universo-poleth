@@ -207,6 +207,16 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
     let enTransicion = false;    // bloquea nuevos clicks mientras se anima
     let musicaEstabaSonando = null; // por si luego se quiere pausar/reanudar música
 
+    // true SOLO durante el tramo en que el video ya está 100% a pantalla
+    // completa y quieto (después de la transición de entrada, antes de
+    // que se empiece a cerrar). index.html usa esto para dejar de
+    // renderizar el universo 3D mientras tanto — no se ve nada de todas
+    // formas (el video lo tapa entero) pero sin esto la GPU seguía
+    // dibujando planetas/nebulosas/estrellas de fondo en cada frame,
+    // compitiendo por recursos con la decodificación del video y
+    // causando los entrecortes/lag durante la reproducción.
+    let mostrandoVideo = false;
+
     // Para distinguir click real de arrastre de cámara (OrbitControls usa
     // el mismo botón para rotar la escena, así que un click con movimiento
     // no debe contar como click).
@@ -370,6 +380,12 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
             flashEl.style.transition = 'opacity 0.7s ease-out';
             flashEl.style.opacity = '0';
 
+            // Recién cuando termina esta transición de 0.7s (video 100%
+            // opaco y quieto) dejamos de renderizar el universo 3D detrás.
+            // Si lo hiciéramos antes, se notaría un "congelado" del fondo
+            // durante el propio crossfade.
+            setTimeout(() => { mostrandoVideo = true; }, 700);
+
             // OJO: "enTransicion" se queda en true mientras el video está
             // abierto (recién se libera en cerrarPortal). Si se liberaba
             // aquí, actualizar() volvía a detectar el planeta como
@@ -392,6 +408,10 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
 
     function cerrarPortal({ posInicial, targetInicial, autoRotatePrevio }) {
         enTransicion = true;
+        // Apenas se empieza a cerrar, el universo vuelve a renderizarse
+        // (así ya se ve animándose durante el propio fundido de salida,
+        // en vez de aparecer "congelado" y arrancar de golpe al final).
+        mostrandoVideo = false;
 
         videoOverlayEl.style.opacity = '0';
         document.body.classList.remove('portal-planeta-abierto');
@@ -440,5 +460,5 @@ export function crearPortalesPlanetas({ THREE, camera, controls, renderer }) {
         requestAnimationFrame(tickRegreso);
     }
 
-    return { registrarPlaneta, actualizar };
+    return { registrarPlaneta, actualizar, estaMostrandoVideo: () => mostrandoVideo };
 }
