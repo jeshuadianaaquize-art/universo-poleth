@@ -33,6 +33,13 @@ try {
 const cancionesData = [
 
     // ── Pop romántico / soft pop (apertura suave) ──────────────────────
+    { archivo: 'musica/Conan Gray - Astronomy (Official Lyric Video).mp3', favorita: true },
+    { archivo: 'musica/Conan Gray - People Watching (Video Oficial Sub. Español).mp3', favorita: true },
+    { archivo: 'musica/Flicker.mp3', favorita: true },
+    { archivo: 'musica/Selena Gomez - Back To You (Lyric Video).mp3', favorita: true },
+    { archivo: 'musica/Conan Gray - Family Line (Traducida al Español).mp3', favorita: true },
+    { archivo: 'musica/Conan Gray - Memories (Lyrics).mp3', favorita: true },
+    { archivo: 'musica/Eminem - Superman (Audio).mp3', favorita: true },
     { archivo: 'musica/Ariana Grande - hate that i made you love me.mp3', favorita: false },
     { archivo: 'musica/RAYE - WHERE IS MY HUSBAND!.mp3', favorita: true },
     { archivo: 'musica/Ed Sheeran - Give Me Love.mp3', favorita: true },
