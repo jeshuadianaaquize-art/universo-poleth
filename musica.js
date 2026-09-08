@@ -33,6 +33,8 @@ try {
 const cancionesData = [
 
     // ── Pop romántico / soft pop (apertura suave) ──────────────────────
+    { archivo: 'musica/petal intro.mp3', favorita: true },
+    { archivo: 'musica/petal.mp3', favorita: true },
     { archivo: 'musica/Is This Love.mp3', favorita: true },
     { archivo: 'musica/Apocalypse - Cigarettes After Sex.mp3', favorita: true },
     { archivo: 'musica/Billie Eilish - BLUE.mp3', favorita: true },
