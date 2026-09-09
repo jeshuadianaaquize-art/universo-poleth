@@ -33,7 +33,15 @@ try {
 const cancionesData = [
 
     // ── Pop romántico / soft pop (apertura suave) ──────────────────────
-    { archivo: 'musica/petal intro.mp3', favorita: true },
+    { archivo: 'musica/Moonlight.mp3', favorita: true },
+    { archivo: 'musica/keshi - Soft Spot.mp3', favorita: true },
+    { archivo: 'musica/Carpenters - Close to you.mp3', favorita: true },
+    { archivo: 'musica/Apocalypse - Cigarettes After Sex.mp3', favorita: true },
+    { archivo: 'musica/Paramore_ The Only Exception.mp3', favorita: true },
+    { archivo: 'musica/Damiano David - The First Time.mp3', favorita: true },
+    { archivo: 'musica/MeloMance Love, Maybe.mp3', favorita: true },
+    { archivo: 'musica/The Turtles - Happy Together.mp3', favorita: true },
+    archivo: 'musica/petal intro.mp3', favorita: true },
     { archivo: 'musica/petal.mp3', favorita: true },
     { archivo: 'musica/Is This Love.mp3', favorita: true },
     { archivo: 'musica/Apocalypse - Cigarettes After Sex.mp3', favorita: true },
